@@ -8,6 +8,7 @@ import WatchDetail from "../components/watch-detail";
 import RecordModal from "../components/record-modal";
 import { BrandsView, CollectionView, RecordsView, SourcesView } from "../components/account-views";
 import ClipView from "../components/save-from-web";
+import GroupImport from "../components/group-import";
 import { defaultPrefs, matchesPrefs, parseRoute, routeUrl, type BrandFacet, type LiveListing, type Me, type ModalKind, type Prefs, type Route } from "../components/shared";
 
 const PREFS_KEY = "watchledger:prefs";
@@ -177,14 +178,16 @@ export default function Home() {
             onModels={addModels}
             signedIn={signedIn}
             onSaveRecord={saveRecord}
-            groupSources={sources.filter((s) => /facebook\.com\/groups\//i.test(s.url || ''))}
+            groupSources={sources.filter((s) => /facebook\.com\/groups\/[\w.]+/i.test(s.url || ''))}
           />
         ) : route.view === "collection" ? (
           <CollectionView entries={entries} models={models} prefs={prefs} onPrefs={setPrefs} onNavigate={navigate} onModal={openModal} onRemove={remove} />
         ) : route.view === "records" ? (
           <RecordsView entries={entries} models={models} sources={sources} prefs={prefs} onPrefs={setPrefs} onNavigate={navigate} onModal={openModal} onRemove={remove} onExport={exportData} />
         ) : route.view === "sources" ? (
-          <SourcesView sources={sources} onModal={openModal} />
+          <SourcesView sources={sources} onModal={openModal} onImport={() => navigate({ view: 'import' })} />
+        ) : route.view === "import" ? (
+          <GroupImport sources={sources} entries={entries} onSave={saveRecord} onNavigate={navigate} />
         ) : route.view === "clip" ? (
           <ClipView brands={brands} sources={sources} onSave={saveRecord} onNavigate={navigate} />
         ) : route.view === "brands" ? (

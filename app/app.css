@@ -465,3 +465,26 @@
   .risk-checks { grid-column: 1; grid-row: auto; }
 }
 @media (max-width: 560px) { .metrics-grid { grid-template-columns: 1fr 1fr; } .metric strong { font-size: 20px; } .price-value strong.big { font-size: 26px; } .price-row { flex-wrap: wrap; } }
+/* Group post import */
+.import-steps { margin: 0 0 14px; padding-left: 20px; color: var(--ink-2); font-size: 14px; line-height: 1.8; }
+.import-steps a { color: var(--accent); display: inline-flex; align-items: center; gap: 3px; }
+.import-settings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.import-text { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: inherit; font-size: 13px; resize: vertical; margin-bottom: 12px; background: var(--surface); }
+.import-table td { vertical-align: middle; white-space: normal; }
+.import-table tr.off td { opacity: .5; }
+.import-table select, .import-table input[type=number], .import-table input[type=date] { font-size: 13px; padding: 6px 8px; }
+.import-table select { max-width: 280px; }
+.import-price { display: flex; gap: 4px; }
+.import-price input { width: 100px; }
+.import-post { max-width: 360px; font-size: 13px; }
+.import-post summary { cursor: pointer; }
+.import-post p { white-space: pre-wrap; font-size: 12px; color: var(--ink-2); background: var(--surface-2); padding: 8px; border-radius: 6px; max-height: 200px; overflow: auto; }
+.import-post a { font-size: 12px; color: var(--accent); display: inline-flex; gap: 3px; align-items: center; }
+.import-ok { color: #2f7d57; display: inline-flex; gap: 4px; align-items: center; font-weight: 600; font-size: 13px; }
+.import-err { color: #b0472f; display: inline-flex; gap: 4px; align-items: center; font-size: 12px; }
+.muted { color: var(--muted); display: block; font-size: 12px; }
+.import-done { margin: 0 22px 12px; }
+.chip-link { color: var(--accent); font-weight: 600; font-size: 12px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) { .import-settings { grid-template-columns: 1fr; } }

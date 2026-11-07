@@ -131,7 +131,7 @@ export function RecordsView({ entries, models, sources, prefs, onPrefs, onNaviga
   );
 }
 
-export function SourcesView({ sources, onModal }: { sources: Source[]; onModal: (k: ModalKind) => void }) {
+export function SourcesView({ sources, onModal, onImport }: { sources: Source[]; onModal: (k: ModalKind) => void; onImport: () => void }) {
   return (
     <div className="account">
       <div className="account-head">
@@ -158,6 +158,7 @@ export function SourcesView({ sources, onModal }: { sources: Source[]; onModal: 
       </section>
       <section className="panel clip-panel" style={{ marginTop: 24 }}>
         <h2>Save prices from any website</h2>
+        <p className="subtitle">Many posts at once? Use <button className="text-btn" onClick={() => onImport()}>Import group posts</button> to paste a whole Facebook group feed.</p>
         <p className="subtitle">For Chrono24, Facebook groups and other sites that can’t be searched automatically.</p>
         <BookmarkletInstall />
       </section>

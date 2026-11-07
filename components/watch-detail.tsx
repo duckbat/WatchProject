@@ -352,6 +352,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                     {g.name}
                     <small>save button</small>
                     <a href={href} target="_blank" rel="noreferrer">Search group <ArrowUpRight size={12} /></a>
+                    <button className="chip-link" onClick={() => onNavigate({ view: 'import' })}>Import posts</button>
                   </span>
                 ) : null;
               })}

@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { splitPosts, parsePostDate, isSold, postLink } from '../lib/post-import.ts';
+const now = new Date('2026-11-08T12:00:00Z');
+const feed = `Matti Meikäläinen\n3 d\nMyydään Rolex Datejust 126200 sininen, hinta 7 900 €\nLike\nComment\nShare\nAnna A.\n2 vk\nOmega Speedmaster 310.30.42.50.01.001 MYYTY 6200e\nTykkää\nKommentoi\nJaa\nPekka\n3. lokakuuta\nTudor 79030N 3400€`;
+const posts = splitPosts(feed);
+assert.equal(posts.length, 3);
+assert.equal(parsePostDate(posts[0], now), '2026-11-05');
+assert.equal(parsePostDate(posts[1], now), '2026-10-25');
+assert.equal(parsePostDate(posts[2], now), '2026-10-03');
+assert.equal(parsePostDate('Yesterday at 10:00', now), '2026-11-07');
+assert.equal(parsePostDate('October 3, 2025', now), '2025-10-03');
+assert.equal(parsePostDate('Dec 20', now), '2025-12-20');
+assert.equal(parsePostDate('7.11.2026', now), '2026-11-07');
+assert.equal(parsePostDate('no date here', now), null);
+assert(isSold(posts[1])); assert(!isSold(posts[0]));
+assert.equal(postLink('see https://www.facebook.com/groups/1424920254386825/posts/987654321/ ok'), 'https://www.facebook.com/groups/1424920254386825/posts/987654321/');
+assert.equal(splitPosts('one post with price 5000€\n\nanother post 6000€').length, 2);
+console.log('Post import checks passed: splitting, relative/absolute dates (EN/FI), sold flag, post links.');

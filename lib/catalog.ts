@@ -26,3 +26,14 @@ export function searchCatalog({q='',brand='',page=1,pageSize=24}:{q?:string;bran
  const pages=Math.max(1,Math.ceil(matching.length/pageSize));const current=Math.min(Math.max(1,page),pages);
  return {items:matching.slice((current-1)*pageSize,current*pageSize),total:matching.length,totalCatalog:allModels.length,page:current,pages,pageSize,brands,source:'Timepiecepedia · CC0 catalog metadata',coverage:'Catalog coverage is incomplete; prices require separate market observations.'};
 }
+
+// Reference index for matching free text (forum posts) to catalog entries; variant suffixes (-0001) are optional.
+const refIndex=new Map<string,CatalogModel[]>();
+for(const m of allModels){for(const k of new Set([squash(m.reference),squash(m.reference.replace(/-\d{3,4}$/,''))])){if(k.length<4)continue;const xs=refIndex.get(k)||[];if(xs.length<12)xs.push(m);refIndex.set(k,xs);}}
+export function matchReferences(text:string){
+ const lower=text.toLocaleLowerCase();const tokens=new Set<string>();
+ for(const t of lower.match(/[a-z0-9][a-z0-9.\-/]{3,}/g)||[]){if(!/\d/.test(t))continue;const k=squash(t.replace(/^ref\.?/,''));tokens.add(squash(t));tokens.add(k);const market=k.match(/^(.{5,}?)(j1|k1|p1|j|k)$/);if(market)tokens.add(market[1]);}
+ const found:CatalogModel[]=[];
+ for(const t of tokens){for(const m of refIndex.get(t)||[])if(!found.includes(m))found.push(m);}
+ return found.sort((a,b)=>Number(lower.includes(b.brand.toLocaleLowerCase()))-Number(lower.includes(a.brand.toLocaleLowerCase()))).slice(0,6);
+}
