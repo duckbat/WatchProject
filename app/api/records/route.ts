@@ -1,9 +1,10 @@
+import { findCatalogModel } from "../../../lib/catalog";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
 import { records } from "../../../db/schema";
-import { catalog, defaultSources, countries } from "../../../lib/market";
+import { defaultSources, countries } from "../../../lib/market";
 const short = z.string().trim().min(1).max(160);
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>{const d=new Date(v+"T00:00:00Z");return Number.isFinite(+d)&&d.toISOString().slice(0,10)===v&&v<=new Date().toISOString().slice(0,10)},"Use a valid date, today or earlier");
 const currency=z.enum(["EUR","USD","GBP","CHF"]);
@@ -19,7 +20,7 @@ export async function POST(req:Request){const user=await getChatGPTUser();if(!us
  if(Number(req.headers.get("content-length"))>16000)return Response.json({error:"Request too large"},{status:413});
  const parsed=payload.safeParse(await req.json());if(!parsed.success)return Response.json({error:parsed.error.issues[0].message},{status:400});const {kind,data}=parsed.data;const db=getDb();
  const rows=await db.select().from(records).where(eq(records.owner,user.userId));
- if("modelId" in data && !catalog.some(m=>m.id===data.modelId)&&!rows.some(r=>r.kind==="model"&&r.id===data.modelId))return Response.json({error:"Choose a watch model first."},{status:400});
+ if("modelId" in data && !findCatalogModel(data.modelId)&&!rows.some(r=>r.kind==="model"&&r.id===data.modelId))return Response.json({error:"Choose a watch model first."},{status:400});
  if("sourceId" in data&&!defaultSources.some(s=>s.id===data.sourceId)&&!rows.some(r=>r.kind==="source"&&r.id===data.sourceId))return Response.json({error:"Choose a source first."},{status:400});
  if(kind==="observation"&&data.url&&rows.some(r=>r.kind==="observation"&&JSON.parse(r.payload).url===data.url&&JSON.parse(r.payload).observedAt===data.observedAt))return Response.json({error:"This listing is already recorded for this date."},{status:409});
  const id=crypto.randomUUID();await db.insert(records).values({id,owner:user.userId,kind,payload:JSON.stringify(data)});return Response.json({id,kind,data},{status:201});

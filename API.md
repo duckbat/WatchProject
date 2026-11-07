@@ -40,3 +40,11 @@ Returns price, unique-listing sample size, observation count, dated history and 
 Watch photos use externally hosted reference-specific photos with credits in the app. Broken/missing photos render an empty watch icon. External photos may disappear; attribution is not a reuse license. For broader distribution, replace them with your own or licensed photos. Custom watch photo URLs are optional.
 
 Source references: [eBay Browse API](https://developer.ebay.com/api-docs/buy/api-browse.html), [Tori public search](https://www.tori.fi/recommerce/forsale/search).
+
+## Full reference catalog
+
+`GET /api/catalog?q=speedmaster&brand=Omega&page=1` returns 24 references per page, total counts, page count, and brand facets. `GET /api/catalog?ids=id1,id2` resolves up to 200 catalog IDs for saved collections. Catalog metadata is public; personal records remain authenticated and user scoped.
+
+The bundled Timepiecepedia CC0 snapshot has 40,753 unique brand/reference combinations across 224 brands, deduplicated from 48,603 CSV rows. Four additional legacy references preserve existing application IDs (40,757 catalog entries total). This is broad coverage, not every watch ever produced. Source details and license: `data/catalog/`. It does not supply market prices or price history. External photos fall back to an empty watch icon on errors.
+
+Reimport from downloaded source files: `python3 scripts/import-catalog.py /path/to/references.csv --license-path /path/to/LICENSE`. Review changed IDs before publishing a new snapshot.

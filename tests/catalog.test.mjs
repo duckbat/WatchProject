@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+const files=(await readdir('data/catalog/shards')).filter(f=>f.endsWith('.json')).sort();
+const rows=(await Promise.all(files.map(f=>readFile('data/catalog/shards/'+f,'utf8').then(JSON.parse)))).flat();
+assert(rows.length>40000);assert.equal(new Set(rows.map(m=>m.id)).size,rows.length);
+assert.equal(new Set(rows.map(m=>`${m.brand.toLowerCase()}|${m.reference.toLowerCase()}`)).size,rows.length);
+assert(rows.every(m=>m.brand&&m.name&&m.reference&&m.sourceUrl.startsWith('https://timepiecepedia.com/')));
+assert(rows.some(m=>m.brand==='Rolex'));assert(rows.some(m=>m.brand==='Omega'));assert(rows.some(m=>m.brand==='Seiko'));
+assert(rows.every(m=>!('price' in m)));assert(rows.every(m=>!m.imageUrl||m.imageUrl.startsWith('https://')));
+console.log(`Catalog checks passed: ${rows.length.toLocaleString()} unique references; ${new Set(rows.map(m=>m.brand)).size} brands; stable IDs, source links and no fabricated prices.`);

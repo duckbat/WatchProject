@@ -21,3 +21,5 @@ Comparisons use observations within the selected period, not an appraisal model.
 `node --experimental-strip-types tests/market.test.mjs`
 
 `npm run build`
+
+The explorer now uses /api/catalog with server-side search, brand filtering and pagination over a CC0 Timepiecepedia snapshot (40,757 entries including preserved legacy references). It does not ship the complete catalog to browser JavaScript. Catalog records can be used for collection records and price collection.
