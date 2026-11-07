@@ -1,0 +1,12 @@
+# Copy to .dev.vars (never committed) and restart `npm run dev`.
+# Marketplace keys are optional; each one switches on a live source on watch pages.
+
+# eBay Browse API (free developer account) — see MARKETPLACES.md
+EBAY_CLIENT_ID=
+EBAY_CLIENT_SECRET=
+# Marketplace to search: EBAY_DE, EBAY_US, EBAY_GB, EBAY_FR, EBAY_IT or EBAY_ES
+EBAY_MARKETPLACE=EBAY_DE
+
+# Optional: Reddit API app. Without it, r/Watchexchange is searched via Reddit's public RSS feed.
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=

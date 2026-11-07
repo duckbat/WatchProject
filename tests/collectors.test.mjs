@@ -39,3 +39,9 @@ assert.equal(rx[1].status,'sold-asking');assert.equal(rx[2].match,'similar');ass
 const {feeBreakdown}=await import('../.sites-runtime/test-modules/market.mjs');
 const f=feeBreakdown(10000);assert.equal(Math.round(f.commission),695);assert.equal(Math.round(f.sellerNet),9305);assert.equal(Math.round(f.listToNet),10747);assert.equal(feeBreakdown(100,'tori'),null);
 console.log('Reddit parsing, price extraction and Chrono24 fee checks passed.');
+const {parseRedditRss,decodeEntities}=await import('../.sites-runtime/test-modules/collectors.mjs');
+assert.equal(decodeEntities('A &amp;amp; B &#32;&quot;x&quot;'),'A &amp; B  "x"');
+const rss=parseRedditRss(await readFile('tests/fixtures/reddit-126200.rss','utf8'),dj);
+assert(rss.length>=3);assert(rss.every(r=>r.sourceId==='reddit'&&r.url.startsWith('https://www.reddit.com/r/Watchexchange/comments/')&&r.price>1000));
+assert(rss.some(r=>r.price===8999&&r.currency==='USD'));assert.throws(()=>parseRedditRss('<html>blocked</html>',dj),/feed/);
+console.log(`Reddit RSS checks passed: ${rss.length} priced posts from fixture.`);

@@ -108,7 +108,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const livePrice = summarize(exactIn.map((l) => l.price), prefs.method);
   const similarPrice = summarize(similarIn.map((l) => l.price), prefs.method);
   const marketPrice = livePrice ?? savedPrice;
-  const marketBasis = livePrice !== null ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${exactIn.length} live exact-reference listing${exactIn.length === 1 ? '' : 's'}` : savedPrice !== null ? `From ${latestListings(savedShown).length} of your saved prices` : '';
+  const marketBasis = livePrice !== null ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${exactIn.length} exact-reference listing${exactIn.length === 1 ? '' : 's'} · ${periods.find(([v]) => v === prefs.period)?.[1]}` : savedPrice !== null ? `From ${latestListings(savedShown).length} of your saved prices` : '';
   const lows = exactIn.map((l) => l.price);
   const otherCurrencies = exact.filter((l) => l.currency !== prefs.currency).map((l) => l.currency);
   const otherCurrency = otherCurrencies.length;

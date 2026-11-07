@@ -43,3 +43,6 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Keep the committed template for local secrets
+!.dev.vars.example

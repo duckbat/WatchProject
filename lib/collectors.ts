@@ -40,12 +40,14 @@ export function parseTori(html:string,model:Model,now=new Date()):Candidate[]{re
 const currencyBySymbol:Record<string,string>={'$':'USD','usd':'USD','€':'EUR','eur':'EUR','£':'GBP','gbp':'GBP','chf':'CHF'};
 /** First price in the text: "$8,500", "8.500€", "EUR 7900", "£6k". */
 export function extractPrice(text:string):{price:number;currency:string}|null{
- const re=/(\$|€|£|\b(?:usd|eur|gbp|chf)\b)\s?(\d{1,3}(?:[,.\s]\d{3})+|\d+(?:\.\d+)?)(\s?k\b)?|(\d{1,3}(?:[,.\s]\d{3})+|\d+(?:\.\d+)?)(\s?k\b)?\s?(\$|€|£|\b(?:usd|eur|gbp|chf)\b)/i;
- const m=text.match(re);if(!m)return null;
- const sym=(m[1]||m[6]||'').toLowerCase(),raw=(m[2]||m[4]||''),k=m[3]||m[5];
- const grouped=/[,.\s]\d{3}$/.test(raw)&&!/\.\d{1,2}$/.test(raw);
- let price=Number(grouped?raw.replace(/[,.\s]/g,''):raw.replace(/,/g,''));if(k)price*=1000;
- const currency=currencyBySymbol[sym];if(!currency||!Number.isFinite(price)||price<50)return null;return {price,currency};
+ const num='(\\d{1,3}(?:[,.\\s]\\d{3})+|\\d+(?:\\.\\d{1,2})?)';const sym='(\\$|€|£|\\b(?:usd|eur|gbp|chf)\\b)';
+ // Prefer "$8,500" / "EUR 7900"; fall back to "7.900€" / "8500 USD" (symbol directly after the number, no space before $).
+ const before=text.match(new RegExp(`${sym}\\s?${num}(\\s?k\\b)?`,'i'));
+ const after=before?null:text.match(new RegExp(`${num}(\\s?k\\b)?(€|£|\\s?\\b(?:usd|eur|gbp|chf)\\b)`,'i'));
+ const m=before?{sym:before[1],raw:before[2],k:before[3]}:after?{sym:after[3].trim(),raw:after[1],k:after[2]}:null;if(!m)return null;
+ const grouped=/[,.\s]\d{3}$/.test(m.raw)&&!/\.\d{1,2}$/.test(m.raw);
+ let price=Number(grouped?m.raw.replace(/[,.\s]/g,''):m.raw.replace(/,/g,''));if(m.k)price*=1000;
+ const currency=currencyBySymbol[m.sym.toLowerCase()];if(!currency||!Number.isFinite(price)||price<50)return null;return {price,currency};
 }
 /** r/Watchexchange search results ([WTS] posts). Post date is kept, so they form a real price history. */
 export function parseRedditListings(body:any,model:Model&{family?:string}):LiveListing[]{
@@ -63,6 +65,21 @@ export function parseRedditListings(body:any,model:Model&{family?:string}):LiveL
   const c=collectedPrice.safeParse({modelId:model.id,sourceId:'reddit',country:/\b(conus|usa|us)\b/i.test(p.title)?'US':'UNKNOWN',currency:priced.currency,price:priced.price,status:sold?'sold-asking':'asking',observedAt:created.toISOString().slice(0,10),condition:'unknown',sellerType:'private',contents:'unknown',url:'https://www.reddit.com'+p.permalink,title:p.title.slice(0,500),collectedAt:new Date().toISOString()});
   if(c.success&&!result.some(r=>r.url===c.data.url))result.push({...c.data,match,image:firstImage(image)});
  }return result;
+}
+const entities:Record<string,string>={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
+export function decodeEntities(text:string){return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,(m,e:string)=>e[0]==='#'?String.fromCodePoint(e[1]==='x'||e[1]==='X'?parseInt(e.slice(2),16):Number(e.slice(1))):entities[e.toLowerCase()]??m);}
+/** Reddit's public Atom search feed (no API key). It has no post body, so only titles with a price are used. */
+export function parseRedditRss(xml:string,model:Model&{family?:string}):LiveListing[]{
+ if(!/<feed[\s>]/.test(xml))throw new CollectorError('layout_changed','Reddit did not return a feed.');
+ const children=[];
+ for(const entry of (xml.match(/<entry>[\s\S]*?<\/entry>/g)||[]).slice(0,100)){
+  const title=entry.match(/<title>([\s\S]*?)<\/title>/)?.[1];const href=entry.match(/<link href="([^"]+)"/)?.[1];const when=entry.match(/<(?:published|updated)>([^<]+)</)?.[1];
+  if(!title||!href||!when)continue;
+  const link=decodeEntities(href);if(!link.startsWith('https://www.reddit.com/r/'))continue;
+  const thumb=entry.match(/<media:thumbnail url="([^"]+)"/)?.[1];
+  children.push({data:{title:decodeEntities(decodeEntities(title)),selftext:'',permalink:link.slice('https://www.reddit.com'.length),created_utc:+new Date(when)/1000,link_flair_text:'',preview:thumb?{images:[{source:{url:decodeEntities(thumb)}}]}:undefined}});
+ }
+ return parseRedditListings({data:{children}},model);
 }
 export async function safeFetch(url:string,init:RequestInit={},fetcher:typeof fetch=fetch){
  // Only fixed provider URLs reach this helper. User marketplace URLs are never fetched.
@@ -92,7 +109,7 @@ export type SourceStatus={id:string;name:string;status:'ok'|'error'|'credentials
 const toriHeaders={'User-Agent':'WatchProject/1.0 (personal watch price tracker)','Accept':'text/html'};
 async function toriSearch(q:string,model:Model&{family?:string}){const url=new URL('https://www.tori.fi/recommerce/forsale/search');url.searchParams.set('q',q);return parseToriListings(await safeFetch(url.href,{headers:toriHeaders}),model);}
 /** Live, unsaved asking prices for the detail page: exact-reference matches plus clearly labelled similar listings. */
-export async function fetchLiveListings(model:Model&{family?:string},secrets:{EBAY_CLIENT_ID?:string;EBAY_CLIENT_SECRET?:string;REDDIT_CLIENT_ID?:string;REDDIT_CLIENT_SECRET?:string},marketplace='EBAY_DE'){
+export async function fetchLiveListings(model:Model&{family?:string},secrets:{EBAY_CLIENT_ID?:string;EBAY_CLIENT_SECRET?:string;EBAY_MARKETPLACE?:string;REDDIT_CLIENT_ID?:string;REDDIT_CLIENT_SECRET?:string},marketplace=secrets.EBAY_MARKETPLACE||'EBAY_DE'){
  const listings:LiveListing[]=[];const sources:SourceStatus[]=[];
  const add=(xs:LiveListing[])=>{for(const x of xs){const i=listings.findIndex(l=>l.url===x.url);if(i<0)listings.push(x);else if(x.match==='exact')listings[i]=x;}};
  const words=(model.name||'').split(/[\s/]+/).filter(Boolean);const line=words[0]&&/^\d{2}(mm)?$/i.test(words[1]||'')?`${words[0]} ${words[1]}`:(model.family||words[0]||'');
@@ -111,7 +128,9 @@ export async function fetchLiveListings(model:Model&{family?:string},secrets:{EB
   for(const query of [q,line?`${model.brand} ${line}`:''].filter(Boolean)){const url=new URL('https://oauth.reddit.com/r/Watchexchange/search');url.search=new URLSearchParams({q:query,restrict_sr:'1',sort:'new',t:'year',limit:'100',raw_json:'1'}).toString();add(parseRedditListings(JSON.parse(await safeFetch(url.href,{headers:{Authorization:`Bearer ${auth.access_token}`,'User-Agent':ua}})),model));}
   sources.push({id:'reddit',name:'r/Watchexchange',status:'ok',count:listings.length-before,searchUrl:redditSearch});}
   catch(e){sources.push({id:'reddit',name:'r/Watchexchange',status:'error',count:0,message:e instanceof Error?e.message:'Reddit request failed',searchUrl:redditSearch});}}
- else sources.push({id:'reddit',name:'r/Watchexchange',status:'credentials_required',count:0,message:'Add REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET (a free Reddit script app) to include r/Watchexchange.',searchUrl:redditSearch});
+ else{try{const before=listings.length;const url=new URL('https://www.reddit.com/r/Watchexchange/search.rss');url.search=new URLSearchParams({q,restrict_sr:'1',sort:'new',t:'year'}).toString();
+  add(parseRedditRss(await safeFetch(url.href,{headers:{'User-Agent':'WatchLedger/1.0 (personal watch price tracker)',Accept:'application/atom+xml'}}),model));sources.push({id:'reddit',name:'r/Watchexchange',status:'ok',count:listings.length-before,searchUrl:redditSearch,message:'Public RSS search: posts are used when the title states a price.'});}
+  catch(e){const msg=e instanceof Error?e.message:'Reddit request failed';sources.push({id:'reddit',name:'r/Watchexchange',status:'error',count:0,message:/429/.test(msg)?'Reddit is rate-limiting requests right now. Try Refresh in a minute.':msg,searchUrl:redditSearch});}}
  sources.push({id:'chrono24',name:'Chrono24',status:'blocked',count:0,message:'Chrono24 blocks automated access. Open its search and record prices you see.',searchUrl:`https://www.chrono24.com/search/index.htm?${new URLSearchParams({query:q})}`});
  return {listings,sources};
 }

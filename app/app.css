@@ -345,3 +345,25 @@
 .fee-live strong { color: var(--accent); }
 .sold-tag { margin-left: 8px; vertical-align: 2px; background: #fbeee2 !important; color: #a65a1f !important; border-color: #f0d8c2 !important; }
 @media (max-width: 760px) { .fee-head { flex-direction: column; } .fee-input input { width: 100%; } }
+/* Save from any website */
+.clip-panel { padding: 22px; }
+.clip-panel h2 { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.bookmarklet { margin-top: 10px; }
+.bookmarklet-link { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: var(--accent); color: #fff !important; font-weight: 600; font-size: 14px; cursor: grab; box-shadow: 0 4px 14px #35544040; }
+.bookmarklet ol { margin: 16px 0 8px; padding-left: 20px; font-size: 14px; color: var(--ink-2); line-height: 1.8; }
+.clip > .text-btn { margin-bottom: 8px; }
+.clip-title { max-width: 760px; }
+.clip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.clip-candidates { display: flex; flex-direction: column; gap: 6px; }
+.clip-candidates button { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; text-align: left; font-size: 13px; }
+.clip-candidates button.active { border-color: var(--accent); background: var(--accent-soft); }
+.clip-candidates button > span:nth-child(2) { flex: 1; min-width: 0; }
+.clip-candidates small { display: block; color: var(--muted); }
+.clip-search { margin-top: 14px; }
+.clip-search > small { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+.clip-text { margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+.clip-text p { white-space: pre-wrap; background: var(--surface-2); border-radius: 8px; padding: 10px; max-height: 220px; overflow: auto; }
+.clip-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.clip-form input, .clip-form select { width: 100%; font-size: 14px; }
+.clip-form .fee-live { margin: -4px 0 12px; }
+@media (max-width: 900px) { .clip-grid { grid-template-columns: 1fr; } }

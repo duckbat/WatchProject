@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUpRight, Database, Download, Layers3, Plus, Search, Tr
 import { countries, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { WatchCard } from './home-view';
+import { BookmarkletInstall } from './save-from-web';
 import { matchesPrefs, statuses, type BrandFacet, type ModalKind, type Prefs, type Route } from './shared';
 
 type Source = { id: string; name: string; url?: string; country?: string };
@@ -137,7 +138,7 @@ export function SourcesView({ sources, onModal }: { sources: Source[]; onModal: 
         <div>
           <p className="eyebrow">PROFILE</p>
           <h1>Marketplace sources</h1>
-          <p className="subtitle">Where prices come from. Tori.fi is checked live on every watch page. r/Watchexchange and eBay need API credentials. Chrono24 blocks automated access, so its prices are recorded manually and shown with its 6.95% fee.</p>
+          <p className="subtitle">Where prices come from. Tori.fi is checked live on every watch page. r/Watchexchange is searched through Reddit’s public RSS feed. eBay needs free API keys (see MARKETPLACES.md). Chrono24 and Facebook groups can’t be searched automatically, so use the Save to WatchLedger button below; Chrono24 prices show its 6.95% fee.</p>
         </div>
         <button className="primary" onClick={() => onModal('source')}><Plus size={16} />Add source</button>
       </div>
@@ -146,7 +147,7 @@ export function SourcesView({ sources, onModal }: { sources: Source[]; onModal: 
           <article className="source-card" key={s.id}>
             <div className="source-top">
               <span className="source-monogram">{s.name.slice(0, 1)}</span>
-              <span className="tag">{s.id === 'tori' ? 'Live on watch pages' : s.id === 'ebay' || s.id === 'reddit' ? 'API credentials needed' : s.id === 'chrono24' ? 'Manual · 6.95% fee shown' : 'Manual'}</span>
+              <span className="tag">{s.id === 'tori' ? 'Live on watch pages' : s.id === 'reddit' ? 'Live via RSS' : s.id === 'ebay' ? 'API keys needed' : s.id === 'chrono24' ? 'Save button · 6.95% fee shown' : s.id === 'facebook' || s.id === 'web' ? 'Save button' : 'Manual'}</span>
             </div>
             <h2>{s.name}</h2>
             <p>{s.country ? countries[s.country] : 'Multiple regions'}</p>
@@ -154,6 +155,11 @@ export function SourcesView({ sources, onModal }: { sources: Source[]; onModal: 
           </article>
         ))}
         <button className="source-add" onClick={() => onModal('source')}><Plus size={26} /><strong>Add a local source</strong></button>
+      </section>
+      <section className="panel clip-panel" style={{ marginTop: 24 }}>
+        <h2>Save prices from any website</h2>
+        <p className="subtitle">For Chrono24, Facebook groups and other sites that can’t be searched automatically.</p>
+        <BookmarkletInstall />
       </section>
     </div>
   );

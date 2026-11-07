@@ -33,9 +33,10 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 | --- | --- |
 | Tori.fi | On-demand collection of public asking prices, with exact brand/reference matching and review before saving. |
 | eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
-| Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; record prices manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
-| Reddit r/Watchexchange | Live search of [WTS] posts via Reddit's official API when `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` are set; post dates give real history. |
-| Facebook groups | Manual observations; no integration configured. |
+| Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; save listings with the **Save to WatchLedger** button or record them manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
+| Reddit r/Watchexchange | Live search of [WTS] posts through Reddit's public RSS feed (no keys); posts whose title states a price are plotted on their post date. Optional API keys add post-body prices. |
+| Facebook groups | No API exists; use the **Save to WatchLedger** browser button on a post. |
+| Any website | **Save to WatchLedger** browser button: reads the listing you are viewing (structured price data or selected text) and adds it to your history. |
 | Custom marketplaces | Save a source name and link, then record observations manually. Adding a link does not create a scraper. |
 
 Collection runs on demand, not on a background schedule. Price history grows from saved observations; historical market data is not preloaded. Asking prices, confirmed sales, and the last asking price of a sold watch are kept distinct. Different currencies are never combined or automatically converted.
@@ -53,7 +54,7 @@ Original photo URLs were recovered for 39,883 catalog references. Missing or una
 - Server-side catalog search and pagination, so the full catalog is not downloaded into browser JavaScript.
 - Bounded marketplace requests, request-rate limits, and duplicate-observation checks.
 
-See [API.md](API.md) for endpoints, collector setup, supported currencies, and limitations. See [data/catalog/README.md](data/catalog/README.md) for catalog provenance and [PROJECT-NOTES.md](PROJECT-NOTES.md) for implementation notes.
+See [MARKETPLACES.md](MARKETPLACES.md) to connect eBay and set up the save button, and [API.md](API.md) for endpoints, collector setup, supported currencies, and limitations. See [data/catalog/README.md](data/catalog/README.md) for catalog provenance and [PROJECT-NOTES.md](PROJECT-NOTES.md) for implementation notes.
 
 ## Framework and hosting reference
 

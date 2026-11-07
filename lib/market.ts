@@ -11,6 +11,8 @@ export const defaultSources = [
  {id:"ebay",name:"eBay",url:"https://www.ebay.com",country:"",mode:"Manual observations"},
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},
  {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Manual observations"},
+ {id:"facebook",name:"Facebook groups",url:"https://www.facebook.com/groups/",country:"",mode:"Manual observations"},
+ {id:"web",name:"Other website",url:"",country:"",mode:"Manual observations"},
 ];
 export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string};
 export type Source = typeof defaultSources[number];

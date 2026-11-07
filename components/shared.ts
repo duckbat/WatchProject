@@ -1,6 +1,6 @@
 import { inRegion, type Observation } from '../lib/market';
 
-export type View = 'home' | 'watch' | 'collection' | 'records' | 'sources' | 'brands';
+export type View = 'home' | 'watch' | 'collection' | 'records' | 'sources' | 'brands' | 'clip';
 export type Route = { view: View; id?: string; q?: string; brand?: string };
 export type Prefs = { region: string; currency: string; basis: string; method: string; period: string; condition: string; seller: string };
 export type ModalKind = '' | 'owned' | 'observation' | 'source' | 'model' | 'about';
@@ -41,7 +41,7 @@ export function parseRoute(search: string): Route {
   const watch = p.get('watch');
   if (watch) return { view: 'watch', id: watch };
   const view = p.get('view') as View | null;
-  if (view && ['collection', 'records', 'sources', 'brands'].includes(view)) return { view };
+  if (view && ['collection', 'records', 'sources', 'brands', 'clip'].includes(view)) return { view };
   return { view: 'home', q: p.get('q') || '', brand: p.get('brand') || '' };
 }
 

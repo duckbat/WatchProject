@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ChevronDown, Database, Download, Layers3, ListChecks, LogIn, LogOut, Plus, Watch } from 'lucide-react';
+import { BookOpen, BookmarkPlus, ChevronDown, Database, Download, Layers3, ListChecks, LogIn, LogOut, Plus, Watch } from 'lucide-react';
 import type { Model } from '../lib/market';
 import SearchBox from './search-box';
 import type { BrandFacet, Me, ModalKind, Route } from './shared';
@@ -117,6 +117,9 @@ export default function SiteHeader({ route, me, brands, ownedCount, observationC
               </button>
               <button role="menuitem" onClick={() => go({ view: 'sources' })}>
                 <Database size={16} />Marketplace sources
+              </button>
+              <button role="menuitem" onClick={() => go({ view: 'clip' })}>
+                <BookmarkPlus size={16} />Save from any website
               </button>
               <hr />
               <button role="menuitem" onClick={act(() => onModal('owned'))}>

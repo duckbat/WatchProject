@@ -7,6 +7,7 @@ import HomeView from "../components/home-view";
 import WatchDetail from "../components/watch-detail";
 import RecordModal from "../components/record-modal";
 import { BrandsView, CollectionView, RecordsView, SourcesView } from "../components/account-views";
+import ClipView from "../components/save-from-web";
 import { defaultPrefs, matchesPrefs, parseRoute, routeUrl, type BrandFacet, type LiveListing, type Me, type ModalKind, type Prefs, type Route } from "../components/shared";
 
 const PREFS_KEY = "watchledger:prefs";
@@ -182,6 +183,8 @@ export default function Home() {
           <RecordsView entries={entries} models={models} sources={sources} prefs={prefs} onPrefs={setPrefs} onNavigate={navigate} onModal={openModal} onRemove={remove} onExport={exportData} />
         ) : route.view === "sources" ? (
           <SourcesView sources={sources} onModal={openModal} />
+        ) : route.view === "clip" ? (
+          <ClipView brands={brands} sources={sources} onSave={saveRecord} onNavigate={navigate} />
         ) : route.view === "brands" ? (
           <BrandsView brands={brands} onNavigate={navigate} />
         ) : (
