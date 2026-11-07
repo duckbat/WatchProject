@@ -12,7 +12,7 @@ export const defaultSources = [
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},
  {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Manual observations"},
 ];
-export type Model = typeof catalog[number];
+export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string};
 export type Source = typeof defaultSources[number];
 export type Observation = {modelId:string;sourceId:string;country:string;currency:string;price:number;status:string;observedAt:string;condition:string;sellerType:string;contents:string;url:string};
 export type Owned = {modelId:string;cost:number;currency:string;purchaseDate:string};
@@ -23,3 +23,14 @@ export function inRegion(country:string, region:string) { return region === "Glo
 export function summarize(values:number[], method="median") { if(!values.length)return null; if(method==="average")return values.reduce((a,b)=>a+b,0)/values.length; const s=[...values].sort((a,b)=>a-b); const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2; }
 export const money = (n:number|null,currency="EUR") => n===null?"—":new Intl.NumberFormat("en",{style:"currency",currency,maximumFractionDigits:0}).format(n);
 export function history(items:Observation[],method:string){ const groups=new Map<string,number[]>();for(const o of items){const xs=groups.get(o.observedAt)||[];xs.push(o.price);groups.set(o.observedAt,xs);}return [...groups].sort(([a],[b])=>a.localeCompare(b)).map(([date,values])=>({date,value:summarize(values,method)!})); }
+
+export const watchPhotos:Record<string,{url:string;source:string;page:string}>={
+ 'rolex-124060':{url:'https://www.watchclub.com/upload/watches/originali/watch-club-15408-1689010202141-15408-wb.png',source:'Watch Club',page:'https://www.watchclub.com/rolex/submariner/124060-brandnew-ref-124060-year-2022'},
+ 'omega-31030425001001':{url:'https://backend.altherr.de/media/0b/87/06/1770625504/Product_21680_F5FE9DBB.png?ts=1770625504',source:'Altherr',page:'https://www.altherr.de/omega-speedmaster-moonwatch-hesalit-chronograph-310-30-42-50-01-001'},
+ 'tudor-79030n':{url:'https://i.ebayimg.com/images/g/H8EAAOSwOFJoSJm~/s-l500.jpg',source:'eBay listing',page:'https://www.ebay.com/itm/286640799210'},
+ 'cartier-wssa0029':{url:'https://cdn.shopify.com/s/files/1/0566/7982/5558/files/4.Cartier-Santos-WSSA0029-White-Dial_2_432da802-b2ec-4501-9dae-8fc79cbca14c.jpg?v=1731896577',source:'Luxehouze',page:'https://luxehouze.com/sg/en/product/watch/cartier-santos-wssa0029-silver-0013269-sg'},
+ 'seiko-spb143':{url:'https://topperjewelers.com/cdn/shop/products/SPB143.jpg?v=1608201108',source:'Topper Jewelers',page:'https://topperjewelers.com/products/seiko-prospex-spb143'},
+ 'grandseiko-sbga211':{url:'https://www.hassin.co.jp/cdn/shop/files/SBGA211_e49f98bd-bd85-41f5-80ce-40bd06d410f8.jpg?v=1778222258&width=600',source:'Hassin',page:'https://www.hassin.co.jp/collections/grandseiko'}
+};
+
+export function latestListings<T extends {data:Observation}>(entries:T[]):T[]{const latest=new Map<string,T>();for(const e of [...entries].sort((a,b)=>a.data.observedAt.localeCompare(b.data.observedAt))){latest.set(e.data.url||JSON.stringify(e),e);}return [...latest.values()];}

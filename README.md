@@ -1,3 +1,9 @@
+# WatchProject
+
+Private watch collection and regional market price tracker with an owned collection API, Tori.fi collector, and eBay Browse adapter. No selling functionality.
+
+See [API.md](API.md) for endpoints, setup, coverage and limitations.
+
 # vinext-starter
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.

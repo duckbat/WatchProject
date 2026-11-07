@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import ts from 'typescript';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+await mkdir('.sites-runtime/test-modules',{recursive:true});
+for(const name of ['market','collectors']){const source=await readFile(`lib/${name}.ts`,'utf8');await writeFile(`.sites-runtime/test-modules/${name}.mjs`,ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("'./market'","'./market.mjs'"));}
+const {exactMatch,parseTori,parseEbay,safeFetch,collectPrices}=await import('../.sites-runtime/test-modules/collectors.mjs');
+const model={id:'seiko-spb143',brand:'Seiko',reference:'SPB143',name:'Prospex',color:'#000',size:'40.5 mm'};
+assert(exactMatch('Seiko Prospex SPB143',model));
+assert(!exactMatch('Seiko SPB1430',model));assert(!exactMatch('Seiko SPB259J1',model));assert(!exactMatch('Seiko SPB143 strap',model));
+const product={name:'Seiko SPB143',url:'https://www.tori.fi/recommerce/forsale/item/123',offers:{price:'750',priceCurrency:'EUR',availability:'https://schema.org/InStock',itemCondition:'https://schema.org/UsedCondition'}};
+const html=(products)=>`<script id="seoStructuredData" type="application/ld+json">${JSON.stringify({mainEntity:{itemListElement:products.map(item=>({item}))}})}</script>`;
+const now=new Date('2026-11-07T12:00:00Z');
+const xs=parseTori(html([product,product,{...product,name:'Seiko SPB259J1'}]),model,now);assert.equal(xs.length,1);assert.equal(xs[0].price,750);assert.equal(xs[0].sellerType,'unknown');assert.equal(xs[0].country,'FI');assert.equal(xs[0].status,'asking');assert.equal(xs[0].observedAt,'2026-11-07');
+assert.equal(parseTori(html([{...product,url:'http://127.0.0.1/'}]),model).length,0);
+assert.equal(parseTori(html([{...product,offers:{...product.offers,priceCurrency:'JPY'}}]),model).length,0);
+assert.throws(()=>parseTori('<html>Challenge</html>',model),/structured/);
+assert.equal(parseTori(html([]),model).length,0);
+const ebay=parseEbay({itemSummaries:[{title:'Seiko SPB143',price:{value:'800',currency:'USD'},itemLocation:{country:'US'},itemWebUrl:'https://www.ebay.com/itm/123?tracking=1',conditionId:'3000'}]},model,now);assert.equal(ebay.length,1);assert.equal(ebay[0].country,'US');assert.equal(ebay[0].url,'https://www.ebay.com/itm/123');
+await assert.rejects(()=>collectPrices('ebay',model,{}),/EBAY_CLIENT_ID/);
+await assert.rejects(()=>collectPrices('facebook',model,{}),/not connected/);
+await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Response('',{status:403})),/HTTP 403/);
+await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Response('x'.repeat(3_000_001))),/limit/);
+await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Response('',{status:302,headers:{Location:'http://127.0.0.1'}})),/HTTP 302/);
+console.log('Collector checks passed: exact matching, duplicates, malformed data, currencies, origin validation, price types, source errors and response limits.');
