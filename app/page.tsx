@@ -1,72 +1,221 @@
 "use client";
-import { useEffect, useState } from "react";
-import CollectPrices from "../components/collect-prices";
-import WatchSearch from "../components/watch-search";
-import { Watch, Search, Plus, ArrowUpRight, Globe2, Layers3, X, ChevronDown, Database, LayoutDashboard, BookOpen, Trash2, ArrowRight, Check, Info } from "lucide-react";
-import { catalog, watchPhotos, defaultSources, countries, currencies, inRegion, latestListings, summarize, money, history, type Model, type Entry, type Observation } from "../lib/market";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
+import { catalog, defaultSources, latestListings, summarize, type Entry, type Model, type Observation } from "../lib/market";
+import SiteHeader from "../components/site-header";
+import HomeView from "../components/home-view";
+import WatchDetail from "../components/watch-detail";
+import RecordModal from "../components/record-modal";
+import { BrandsView, CollectionView, RecordsView, SourcesView } from "../components/account-views";
+import { defaultPrefs, matchesPrefs, parseRoute, routeUrl, type BrandFacet, type LiveListing, type Me, type ModalKind, type Prefs, type Route } from "../components/shared";
 
-function WatchPhoto({model}:{model:Model}){const [failed,setFailed]=useState(false);const photo=watchPhotos[model.id];const src=photo?.url||model.imageUrl;return src&&!failed?<><img className="watch-photo" src={src} alt={`${model.brand} ${model.name} ${model.reference}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/><span className="photo-credit">Photo: {photo?.source||model.imageSource||"Your source"}</span></>:<span className="watch-placeholder" role="img" aria-label="No watch photo available"><Watch size={44} strokeWidth={1}/><small>No photo available</small></span>}
-const today=()=>new Date().toISOString().slice(0,10);
-const statuses:Record<string,string>={asking:"Asking price","confirmed-sale":"Confirmed sale","sold-asking":"Sold · last ask"};
-export default function Home(){
- const [entries,setEntries]=useState<Entry[]>([]),[loaded,setLoaded]=useState(false),[error,setError]=useState(""),[tab,setTab]=useState("Overview"),[query,setQuery]=useState(""),[region,setRegion]=useState("Global"),[currency,setCurrency]=useState("EUR"),[source,setSource]=useState("all"),[basis,setBasis]=useState("asking"),[method,setMethod]=useState("median"),[period,setPeriod]=useState("365"),[selected,setSelected]=useState(catalog[0].id),[modal,setModal]=useState(""),[busy,setBusy]=useState(false),[formError,setFormError]=useState(""),[condition,setCondition]=useState("all"),[seller,setSeller]=useState("all");
- const [catalogPage,setCatalogPage]=useState<{items:Model[];total:number;totalCatalog:number;pages:number;brands:string[]}>({items:[],total:0,totalCatalog:0,pages:1,brands:[]});
- const [catalogCache,setCatalogCache]=useState<Record<string,Model>>({}),[brand,setBrand]=useState(""),[page,setPage]=useState(1),[catalogLoading,setCatalogLoading]=useState(true),[catalogError,setCatalogError]=useState("");
- const models:Model[]=Object.values({...Object.fromEntries(catalog.map(m=>[m.id,m])),...catalogCache,...Object.fromEntries(entries.filter(e=>e.kind==="model").map(e=>[e.id,{...e.data,id:e.id}]))});
- useEffect(()=>{setPage(1)},[query,brand,tab]);
- useEffect(()=>{const controller=new AbortController();setCatalogLoading(true);setCatalogError("");const timer=setTimeout(()=>{fetch(`/api/catalog?${new URLSearchParams({q:query,brand,page:String(page)})}`,{signal:controller.signal,cache:"no-store"}).then(async r=>{const data:any=await r.json();if(!r.ok)throw new Error(data.error||"Catalog unavailable");setCatalogPage(data);setCatalogCache(prev=>({...prev,...Object.fromEntries(data.items.map((m:Model)=>[m.id,m]))}));}).catch(e=>{if(e.name!=="AbortError")setCatalogError("Could not load the watch catalog. Please reload to retry.")}).finally(()=>{if(!controller.signal.aborted)setCatalogLoading(false)})},200);return()=>{clearTimeout(timer);controller.abort()}},[query,brand,page]);
- useEffect(()=>{const ids=[...new Set(entries.filter(e=>e.kind==="owned"||e.kind==="observation").map(e=>e.data.modelId as string))];if(!ids.length)return;const controller=new AbortController();Promise.all(Array.from({length:Math.ceil(ids.length/200)},(_,i)=>fetch(`/api/catalog?ids=${encodeURIComponent(ids.slice(i*200,i*200+200).join(','))}`,{signal:controller.signal,cache:"no-store"}).then(r=>{if(!r.ok)throw new Error();return r.json()}))).then((groups:any[])=>setCatalogCache(prev=>({...prev,...Object.fromEntries(groups.flatMap(g=>g.items).map((m:Model)=>[m.id,m]))}))).catch(()=>{});return()=>controller.abort()},[entries]);
- const sources=[...defaultSources,...entries.filter(e=>e.kind==="source").map(e=>({...e.data,id:e.id}))];
- const owned=entries.filter(e=>e.kind==="owned"),observations=entries.filter(e=>e.kind==="observation");
- useEffect(()=>{fetch("/api/records").then(async r=>{const body:any=await r.json();if(!r.ok)throw new Error(body.error||"Could not load tracker");setEntries(body)}).catch(e=>setError(e.message)).finally(()=>setLoaded(true));},[]);
- const cutoff=new Date();cutoff.setUTCDate(cutoff.getUTCDate()-Number(period));const start=cutoff.toISOString().slice(0,10);
- const filtered=observations.filter(e=>{const o=e.data;return inRegion(o.country,region)&&o.currency===currency&&(source==="all"||o.sourceId===source)&&(basis==="all"||o.status===basis)&&(condition==="all"||o.condition===condition)&&(seller==="all"||o.sellerType===seller)&&o.observedAt>=start;});
- const value=(id:string)=>summarize(latestListings(filtered.filter(e=>e.data.modelId===id)).map(e=>e.data.price),method);
- const active=models.find(m=>m.id===selected)||models[0];
- const points=history(filtered.filter(e=>e.data.modelId===selected).map(e=>e.data as Observation),method);
- const ownedWithValues=owned.filter(e=>value(e.data.modelId)!==null),total=ownedWithValues.length?ownedWithValues.reduce((n,e)=>n+value(e.data.modelId)!,0):null;
- const basisName=basis==="all"?"Mixed price types":statuses[basis];
- const matches=(m:Model)=>`${m.brand} ${m.name} ${m.reference}`.toLowerCase().includes(query.toLowerCase())&&(!brand||m.brand===brand);
- const customModels=models.filter(m=>entries.some(e=>e.kind==="model"&&e.id===m.id)&&matches(m));
- const visible=tab==="My collection"?models.filter(m=>matches(m)&&owned.some(e=>e.data.modelId===m.id)):[...catalogPage.items,...(page===1?customModels:[])];
- const explorerCount=tab==="My collection"?visible.length:catalogPage.total+customModels.length;
- function open(kind:string){setFormError("");setModal(kind)}
- async function save(event:React.FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setFormError("");const f=new FormData(event.currentTarget);const data:any=Object.fromEntries(f.entries());let kind=modal;
- if(kind==="source")data.mode="Manual observations";
- if(kind==="model"){data.color="#344d47";data.size="";}
- if(kind==="owned")data.cost=Number(data.cost);
- if(kind==="observation")data.price=Number(data.price);
- try{const r=await fetch("/api/records",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind,data})});const body:any=await r.json();if(!r.ok)throw new Error(body.error);setEntries(prev=>[...prev,body]);if(kind==="model")setSelected(body.id);setModal("");}catch(e){setFormError(e instanceof Error?e.message:"Could not save");}finally{setBusy(false)}}
- async function remove(id:string){if(!confirm("Remove this record from your tracker?"))return;try{const r=await fetch(`/api/records?id=${encodeURIComponent(id)}`,{method:"DELETE"});if(!r.ok)throw new Error("Could not remove record");setEntries(prev=>prev.filter(e=>e.id!==id));}catch(e){setError(String(e));}}
- function exportData(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),entries},null,2)],{type:"application/json"}));a.download="watchledger-data.json";a.click();URL.revokeObjectURL(a.href)}
- const modelSelect=<label>Watch model<select name="modelId" defaultValue={selected}>{models.map(m=><option key={m.id} value={m.id}>{m.brand} {m.name} · {m.reference}</option>)}</select></label>;
- const currencySelect=<label>Currency<select name="currency" defaultValue={currency}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label>;
- const countryOptions=Object.entries(countries).sort(([a,an],[b,bn])=>a==="UNKNOWN"?1:b==="UNKNOWN"?-1:an.localeCompare(bn)).map(([code,name])=><option key={code} value={code}>{name}</option>);
- if(tab==="Overview")return <WatchSearch query={query} brand={brand} brands={catalogPage.brands} items={visible} total={explorerCount} page={page} pages={catalogPage.pages} loading={catalogLoading} error={catalogError} onSearch={setQuery} onBrand={setBrand} onPage={setPage} onSelect={m=>{setSelected(m.id);setTab("Market data")}} onNavigate={next=>{setQuery("");setBrand("");setTab(next)}} renderPhoto={m=><WatchPhoto key={m.imageUrl||m.id} model={m}/>}/>;
- return <div className="shell">
- <aside className="sidebar"><a className="brand" href="/"><span className="brand-icon"><Watch size={22}/></span>WatchLedger<span className="brand-dot">.</span></a><nav>{[["Overview",LayoutDashboard],["My collection",Layers3],["Market data",Globe2],["Sources",Database]].map(([name,Icon]:any)=><button key={name} onClick={()=>{if(name==="Overview"){setQuery("");setBrand("")}setTab(name)}} className={tab===name?"nav-item active":"nav-item"}><Icon size={18}/>{name==="Overview"?"All watches":name}{name==="My collection"&&<span className="nav-count">{owned.length}</span>}</button>)}</nav><div className="sidebar-bottom"><button className="nav-item" onClick={()=>open("about")}><BookOpen size={17}/>About the data</button></div></aside>
- <div className="workspace"><header className="topbar"><div className="breadcrumb"><b>{tab==="Overview"?"All watches":tab}</b></div><div className="top-right"><span className="private-badge">PRIVATE</span><button className="icon-btn" aria-label="How prices work" onClick={()=>open("about")}><Info size={18}/></button><span className="avatar">K</span></div></header>
- <main><div className="heading-row"><div><h1>{tab==="Overview"?"Explore the world of watches.":tab==="My collection"?"My collection":tab==="Sources"?"Sources":`${active.brand} ${active.name}`}</h1></div><button className="primary" disabled={!loaded||!!error} onClick={()=>open(tab==="Sources"?"source":"owned")}><Plus size={17}/>{tab==="Sources"?"Add source":"Add my watch"}</button></div>
- {error&&<div role="alert" className="notice error">{error} {error.includes("sign in")&&<a href="/signin-with-chatgpt?return_to=%2F">Sign in</a>}<button onClick={()=>location.reload()}>Retry</button></div>}
- <div style={{marginBottom:16}}><CollectPrices models={models} selected={selected} onImported={rows=>setEntries(prev=>[...prev,...rows])}/></div>
- {tab==="Sources"?<><section className="source-grid">{sources.map(s=><article className="source-card" key={s.id}><div className="source-top"><span className="source-monogram">{s.name.slice(0,1)}</span><span className="tag">{s.id==="tori"?"Collector available":s.id==="ebay"?"API credentials needed":"Manual"}</span></div><h2>{s.name}</h2><p>{s.country?countries[s.country]:"Multiple regions"}</p><div className="source-actions">{s.url&&<a href={s.url} target="_blank" rel="noreferrer">Visit source <ArrowUpRight size={14}/></a>}<button onClick={()=>{setSource(s.id);setTab("Market data")}}>View data <ArrowRight size={14}/></button></div></article>)}<button className="source-add" onClick={()=>open("source")}><Plus size={26}/><strong>Add a local source</strong></button></section></>:<>
- <section className="filters" aria-label="Market filters"><div><Globe2 size={17}/><select aria-label="Region" value={region} onChange={e=>setRegion(e.target.value)}><option value="Global">Global market</option><option value="EU">European Union</option><option value="US">United States</option><option value="Asia">Asia</option><option value="FI">Finland</option><option value="GB">United Kingdom</option><option value="CH">Switzerland</option></select></div><div><Database size={16}/><select aria-label="Source" value={source} onChange={e=>setSource(e.target.value)}><option value="all">All sources</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div><select aria-label="Price basis" value={basis} onChange={e=>setBasis(e.target.value)}>{Object.entries(statuses).map(([v,l])=><option key={v} value={v}>{l}</option>)}<option value="all">Mixed price types</option></select></div><div><select aria-label="Currency" value={currency} onChange={e=>setCurrency(e.target.value)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></div><div><select aria-label="Statistic" value={method} onChange={e=>setMethod(e.target.value)}><option value="median">Median price</option><option value="average">Average price</option></select></div><span className="filter-hint">Seller location · no FX conversion</span></section>
- {tab==="My collection"&&<section className="stats"><article><p>COLLECTION COMPARISON <Layers3 size={16}/></p><strong>{money(total,currency)}</strong><small>{ownedWithValues.length} of {owned.length} owned watches have matching observations</small></article><article><p>WATCHES IN COLLECTION <Watch size={16}/></p><strong>{String(owned.length).padStart(2,"0")}</strong><small>A personal record of what you own</small></article><article><p>MATCHING OBSERVATIONS <Database size={16}/></p><strong>{String(filtered.length).padStart(2,"0")}</strong><small>{basisName} · {region} · {currency}</small></article></section>}
- {tab!=="Market data"&&<section className="panel watches-panel"><div className="section-heading"><div><h2>{tab==="My collection"?"My collection":"All watches"}<span className="count-pill">{explorerCount.toLocaleString()}</span></h2><p>{tab==="My collection"?"Your watches, compared with the observations you’ve collected.":`${catalogPage.totalCatalog.toLocaleString()} catalog references across ${catalogPage.brands.length} brands. Market prices appear when observations exist.`}</p></div><div className="heading-actions"><select aria-label="Watch brand" value={brand} onChange={e=>setBrand(e.target.value)}><option value="">All brands</option>{catalogPage.brands.map(b=><option key={b}>{b}</option>)}</select><label className="search"><Search size={16}/><input placeholder="Search models or references" aria-label="Search watches" value={query} onChange={e=>setQuery(e.target.value)}/></label><button className="secondary" onClick={()=>open("model")}><Plus size={15}/>Add model</button></div></div>{catalogError&&<p role="alert" className="notice error">{catalogError}</p>}{catalogLoading&&tab!=="My collection"&&<p role="status" className="catalog-status">Loading catalog…</p>}<div className="watch-grid" aria-busy={catalogLoading&&tab!=="My collection"}>{visible.map(m=><button key={m.id} className={selected===m.id?"watch-card selected":"watch-card"} onClick={()=>setSelected(m.id)}><div className="watch-visual"><span className="watch-size">{m.size||"Custom reference"}</span><WatchPhoto key={m.imageUrl||m.id} model={m}/>{owned.some(e=>e.data.modelId===m.id)&&<span className="owned-tag"><Check size={11}/>Owned</span>}</div><div className="watch-details"><span className="watch-brand">{m.brand}</span><h3>{m.name}</h3><p>{m.reference}</p><div className="watch-price"><strong>{money(value(m.id),currency)}</strong><span>{filtered.filter(e=>e.data.modelId===m.id).length} observations</span></div></div></button>)}</div>{!visible.length&&!catalogLoading&&!catalogError&&<div className="empty"><Watch/><h3>{tab!=="My collection"?"No matching catalog references":"Your collection starts here"}</h3><p>{tab!=="My collection"?"Try another brand or reference. Missing watches can be added with Add model.":"Add a watch you own to compare it with market observations."}</p><button className="secondary" onClick={()=>open("owned")}>Add my watch</button></div>}{tab!=="My collection"&&<div className="catalog-pagination"><span>Page {page.toLocaleString()} of {catalogPage.pages.toLocaleString()} · {catalogPage.total.toLocaleString()} matching references</span><div><button className="secondary" disabled={page<=1||catalogLoading} onClick={()=>setPage(p=>p-1)}>Previous</button><button className="secondary" disabled={page>=catalogPage.pages||catalogLoading} onClick={()=>setPage(p=>p+1)}>Next</button></div></div>}</section>}
- <section className="chart-layout"><div className="panel chart-panel"><div className="section-heading"><div><p className="eyebrow">PRICE HISTORY</p><h2>{active.brand} {active.name}</h2><p>{active.reference} · {method} of recorded observations</p></div><select aria-label="History period" value={period} onChange={e=>setPeriod(e.target.value)}><option value="30">30 days</option><option value="90">90 days</option><option value="365">1 year</option><option value="36500">All time</option></select></div><div className="chart-value">{money(value(selected),currency)}<span>{basisName} · {region}</span></div>{points.length?<PriceChart points={points} currency={currency}/>:<div className="chart-empty"><div className="empty-chart-lines"/><span className="empty-icon"><Database size={22}/></span><h3>No price history yet</h3><button className="secondary" onClick={()=>open("observation")}><Plus size={15}/>Record a price</button></div>}<div className="chart-foot"><span className="live-dot"/>{points.length} observed dates · {filtered.filter(e=>e.data.modelId===selected).length} observations</div></div><aside className="panel insight-panel"><div className="regional-rows">{["EU","US","Asia","FI"].map(r=>{const xs=observations.filter(e=>e.data.modelId===selected&&e.data.currency===currency&&inRegion(e.data.country,r)&&(source==="all"||e.data.sourceId===source)&&(basis==="all"||e.data.status===basis)&&(condition==="all"||e.data.condition===condition)&&(seller==="all"||e.data.sellerType===seller)&&e.data.observedAt>=start);return <button key={r} onClick={()=>setRegion(r)}><span>{r==="EU"?"European Union":r==="US"?"United States":r==="Asia"?"Asia":"Finland"}<small>{xs.length} observations</small></span><strong>{money(summarize(latestListings(xs).map(e=>e.data.price),method),currency)}</strong></button>})}</div></aside></section>
- {tab==="My collection"&&owned.length>0&&<section className="panel table-panel"><div className="section-heading"><h2>Purchase records</h2></div><div className="table-scroll"><table><thead><tr><th>Watch</th><th>Purchase date</th><th>Paid</th><th>Comparison</th><th>Difference</th><th/></tr></thead><tbody>{owned.map(e=>{const m=models.find(m=>m.id===e.data.modelId);const v=value(e.data.modelId);const same=e.data.currency===currency;return <tr key={e.id}><td>{m?.brand} {m?.name}<small>{m?.reference}</small></td><td>{e.data.purchaseDate}</td><td>{money(e.data.cost,e.data.currency)}</td><td>{money(v,currency)}</td><td>{v!==null&&same?money(v-e.data.cost,currency):"—"}<small>{!same?"Different currencies":"Based on selected filters"}</small></td><td><button className="icon-btn" aria-label="Remove owned watch" onClick={()=>remove(e.id)}><Trash2 size={15}/></button></td></tr>})}</tbody></table></div></section>}
- <section className="panel table-panel"><div className="section-heading"><div><h2>Price observations <span className="count-pill">{filtered.length}</span></h2></div><button className="primary" onClick={()=>open("observation")}><Plus size={16}/>Record a price</button></div><div className="table-tools"><select aria-label="Condition" value={condition} onChange={e=>setCondition(e.target.value)}><option value="all">All conditions</option><option value="used">Pre-owned</option><option value="new">New / unworn</option></select><select aria-label="Seller type" value={seller} onChange={e=>setSeller(e.target.value)}><option value="all">All seller types</option><option value="private">Private seller</option><option value="dealer">Dealer</option></select><button className="text-btn" onClick={exportData}>Export my data <ArrowUpRight size={13}/></button></div>{filtered.length?<div className="table-scroll"><table><thead><tr><th>Watch / reference</th><th>Source</th><th>Country</th><th>Price</th><th>Type</th><th>Observed</th><th/></tr></thead><tbody>{[...filtered].sort((a,b)=>b.data.observedAt.localeCompare(a.data.observedAt)).map(e=>{const o=e.data,m=models.find(m=>m.id===o.modelId);return <tr key={e.id}><td><button className="table-model" onClick={()=>setSelected(o.modelId)}>{m?.brand} {m?.name}</button><small>{m?.reference} · {o.condition} · {o.contents==="full-set"?"Box & papers":o.contents==="watch-only"?"Watch only":"Contents unknown"}</small></td><td>{o.url?<a href={o.url} target="_blank" rel="noreferrer">{sources.find(s=>s.id===o.sourceId)?.name}<ArrowUpRight size={12}/></a>:sources.find(s=>s.id===o.sourceId)?.name}</td><td>{countries[o.country]}</td><td className="price-cell">{money(o.price,o.currency)}</td><td><span className="tag">{statuses[o.status]}</span></td><td>{o.observedAt}</td><td><button className="icon-btn" aria-label="Remove observation" onClick={()=>remove(e.id)}><Trash2 size={15}/></button></td></tr>})}</tbody></table></div>:<div className="empty compact"><Database size={25}/><h3>{observations.length?"No matching prices":"No recorded prices"}</h3><p>{observations.length?"Try another region, currency, source, price type, or date range.":"Record a price or collect market data."}</p><button className="text-btn" onClick={()=>open("observation")}>Record your first observation <ArrowRight size={15}/></button></div>}</section>
- </>}
- <footer><span>WatchLedger</span><button onClick={()=>open("about")}>Data & methodology <ArrowUpRight size={12}/></button></footer>
- </main></div>
- {modal&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&!busy)setModal("")}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><button className="close icon-btn" aria-label="Close dialog" onClick={()=>setModal("")} disabled={busy}><X size={21}/></button><p className="eyebrow">YOUR WATCHLEDGER</p><h2 id="dialog-title">{modal==="owned"?"Add a watch you own":modal==="observation"?"Record a market price":modal==="source"?"Add a marketplace source":modal==="model"?"Track a new reference":"How your prices work"}</h2>{modal==="about"?<div className="about"><p>WatchLedger is a personal data tracker. It has no selling or checkout features.</p><h3>Your observations and on-demand collection</h3><p>Prices can be entered manually or collected on demand from Tori.fi. eBay collection requires server API credentials. Collected matches are reviewed before saving. Adding a custom source saves its name and link; it does not create a scraper. No WatchCharts data is connected.</p><h3>Comparable data first</h3><p>Average is the arithmetic mean. Median is the middle price. Current comparisons use the latest observation per listing URL within the selected period to avoid overweighting listings collected repeatedly. Filters apply to region, source, currency, price type, date range, condition and seller type. Unknown locations only appear in the global view. EUR, USD, GBP and CHF are never combined or converted.</p><h3>Asking is different from sold</h3><p>“Confirmed sale” means you know the transaction price. “Sold · last ask” means the watch sold but only its asking price is known. Neither a removed listing nor a sold badge proves the final price.</p><h3>Understand the limits</h3><p>Charts group observations by date and connect recorded dates. They do not reconstruct missing history. Repeated listings and cross-posts can bias averages; identical links on the same day are rejected, but cross-source duplicates need your review. Box, papers, condition and seller type affect price; no automatic valuation adjustment is applied. A small sample is not a reliable appraisal.</p><p>Your collection and records are stored in your private workspace. Export a copy from Price observations.</p><h3>Reference catalog</h3><p>Browse the imported Timepiecepedia reference catalog, deduplicated by brand and reference. Coverage is incomplete, and catalog specifications have not been independently verified. Catalog metadata is CC0; image rights are separate. Catalog entries do not imply available price observations.</p><p><a href="https://github.com/timepiecepedia/timepiecepedia-data" target="_blank" rel="noreferrer">Timepiecepedia dataset and license ↗</a></p><h3>Watch photography</h3><p>Real reference photos from the following external sources. Unavailable photos show a plain watch icon.</p><p>{Object.entries(watchPhotos).map(([id,p])=><span key={id}><a href={p.page} target="_blank" rel="noreferrer">{models.find(m=>m.id===id)?.brand} · {p.source} ↗</a><br/></span>)}</p><h3>Research sources</h3><p><a href="https://watchcharts.com/watches/about" target="_blank" rel="noreferrer">WatchCharts methodology ↗</a><br/><a href="https://watchcharts.com/api" target="_blank" rel="noreferrer">WatchCharts API and licensing ↗</a></p></div>:<form onSubmit={save}>
- <p className="form-intro">{modal==="owned"?"Keep a purchase record and compare it with your collected market prices.":modal==="source"?"Save a marketplace or group you follow. This creates a manual tracking source, not an automatic feed.":modal==="model"?"Use an exact reference so different watch variants don’t get mixed together.":"Add an observation from an external marketplace. Nothing is listed for sale here."}</p>
- {(modal==="owned"||modal==="observation")&&modelSelect}
- {modal==="owned"&&<><div className="form-grid"><label>Purchase price<input name="cost" type="number" min="0" max="1000000000" step="0.01" required placeholder="0.00"/></label>{currencySelect}</div><label>Purchase date<input type="date" name="purchaseDate" defaultValue={today()} max={today()} required/></label><button type="button" className="text-btn" onClick={()=>open("model")}>Can’t find your watch? Add its reference first.</button></>}
- {modal==="source"&&<><label>Source name<input name="name" required maxLength={160} placeholder="e.g. Finnish watch collectors"/></label><label>Marketplace or group URL<input name="url" type="url" maxLength={2000} placeholder="https://www.facebook.com/groups/…" required/></label><label>Default seller country<select name="country" defaultValue="FI"><option value="">Multiple countries / unknown</option>{countryOptions}</select></label></>}
- {modal==="model"&&<><label>Brand<input name="brand" required maxLength={160} placeholder="e.g. Longines"/></label><label>Model name<input name="name" required maxLength={160} placeholder="e.g. Spirit Zulu Time"/></label><label>Photo URL <span className="optional">optional · use an image you have permission to display</span><input name="imageUrl" type="url" placeholder="https://…" maxLength={2000}/></label><label>Exact reference<input name="reference" required maxLength={160} placeholder="e.g. L3.802.4.63.6"/></label></>}
- {modal==="observation"&&<><label>Source<select name="sourceId" defaultValue={source==="all"?sources[0].id:source}>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><div className="form-grid"><label>Observed price<input name="price" type="number" min="0.01" max="1000000000" step="0.01" required placeholder="0.00"/></label>{currencySelect}</div><div className="form-grid"><label>Seller country<select name="country" defaultValue={sources.find(s=>s.id===source)?.country||"UNKNOWN"}>{countryOptions}</select></label><label>Date observed<input name="observedAt" type="date" max={today()} defaultValue={today()} required/></label></div><label>Price type<select name="status" defaultValue={basis==="all"?"asking":basis}>{Object.entries(statuses).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><div className="form-grid"><label>Condition<select name="condition"><option value="used">Pre-owned</option><option value="new">New / unworn</option></select></label><label>Seller type<select name="sellerType"><option value="private">Private seller</option><option value="dealer">Dealer</option></select></label></div><label>Box & papers<select name="contents"><option value="unknown">Unknown</option><option value="full-set">Box and papers</option><option value="watch-only">Watch only</option></select></label><label>Listing URL <span className="optional">optional</span><input name="url" type="url" maxLength={2000} placeholder="https://…"/></label><p className="fine">Use the final transaction price only when confirmed. Avoid recording the same watch’s cross-posted listing more than once.</p></>}
- {formError&&<p role="alert" className="error-text">{formError}</p>}<div className="form-actions"><button className="secondary" type="button" onClick={()=>setModal("")} disabled={busy}>Cancel</button><button className="primary" disabled={busy}>{busy?"Saving…":modal==="observation"?"Save observation":modal==="source"?"Save source":modal==="model"?"Add reference":"Add to collection"}</button></div></form>}</section></div>}
- </div>;
+const PREFS_KEY = "watchledger:prefs";
+const RECENT_KEY = "watchledger:recent-watches";
+
+export default function Home() {
+  const [route, setRoute] = useState<Route>({ view: "home" });
+  const [ready, setReady] = useState(false);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
+  const [me, setMe] = useState<Me | null>(null);
+  const [brands, setBrands] = useState<BrandFacet[]>([]);
+  const [cache, setCache] = useState<Record<string, Model>>(() => Object.fromEntries(catalog.map((m) => [m.id, m])));
+  const [prefs, setPrefsState] = useState<Prefs>(defaultPrefs);
+  const [modal, setModal] = useState<ModalKind>("");
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+
+  // ---- Routing (query-string based so links and the back button work) ----
+  useEffect(() => {
+    setRoute(parseRoute(location.search));
+    setReady(true);
+    try {
+      const p = JSON.parse(localStorage.getItem(PREFS_KEY) || "null");
+      if (p) setPrefsState({ ...defaultPrefs, ...p });
+      setRecentIds(JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"));
+    } catch {}
+    const onPop = () => setRoute(parseRoute(location.search));
+    addEventListener("popstate", onPop);
+    return () => removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = useCallback((r: Route) => {
+    const url = routeUrl(r);
+    if (url !== location.pathname + location.search) history.pushState(null, "", url);
+    setRoute(r);
+    scrollTo({ top: 0 });
+  }, []);
+  const setPrefs = (p: Prefs) => {
+    setPrefsState(p);
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {}
+  };
+
+  // ---- Data ----
+  useEffect(() => {
+    fetch("/api/records")
+      .then(async (r) => {
+        const body: any = await r.json();
+        if (!r.ok) throw new Error(body.error || "Could not load your records");
+        setEntries(body);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoaded(true));
+    fetch("/api/me").then((r) => r.json()).then((d) => setMe(d as Me)).catch(() => setMe({ user: null }));
+    fetch("/api/catalog?facets=brands").then((r) => r.json()).then((d: any) => setBrands(d.brands || [])).catch(() => {});
+  }, []);
+
+  const addModels = useCallback((ms: Model[]) => setCache((prev) => ({ ...prev, ...Object.fromEntries(ms.map((m) => [m.id, m])) })), []);
+
+  // Resolve catalog details for watches referenced by records and recent views.
+  useEffect(() => {
+    const ids = [...new Set([...entries.filter((e) => e.kind === "owned" || e.kind === "observation").map((e) => e.data.modelId as string), ...recentIds])].filter((id) => !cache[id]);
+    if (!ids.length) return;
+    const controller = new AbortController();
+    Promise.all(
+      Array.from({ length: Math.ceil(ids.length / 200) }, (_, i) =>
+        fetch(`/api/catalog?ids=${encodeURIComponent(ids.slice(i * 200, i * 200 + 200).join(","))}`, { signal: controller.signal }).then((r) => r.json()),
+      ),
+    )
+      .then((groups: any[]) => addModels(groups.flatMap((g) => g.items || [])))
+      .catch(() => {});
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, recentIds]);
+
+  // Remember recently viewed watches.
+  useEffect(() => {
+    if (route.view !== "watch" || !route.id) return;
+    setRecentIds((prev) => {
+      const next = [route.id!, ...prev.filter((x) => x !== route.id)].slice(0, 12);
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [route]);
+
+  const models = useMemo(
+    () => ({ ...cache, ...Object.fromEntries(entries.filter((e) => e.kind === "model").map((e) => [e.id, { ...e.data, id: e.id }])) }) as Record<string, Model>,
+    [cache, entries],
+  );
+  const sources = [...defaultSources, ...entries.filter((e) => e.kind === "source").map((e) => ({ ...e.data, id: e.id }))];
+  const sourceName = (id: string) => sources.find((s) => s.id === id)?.name || id;
+  const owned = entries.filter((e) => e.kind === "owned");
+  const observations = entries.filter((e) => e.kind === "observation") as (Entry & { data: Observation })[];
+  const ownedIds = new Set(owned.map((e) => e.data.modelId as string));
+  const priceFor = (id: string) => {
+    const xs = observations.filter((e) => e.data.modelId === id && matchesPrefs(e.data, prefs));
+    return { value: summarize(latestListings(xs).map((e) => e.data.price), prefs.method), count: xs.length };
+  };
+  const selected = route.view === "watch" && route.id ? route.id : catalog[0].id;
+  const modalModels = Object.values(models).sort((a, b) => (a.id === selected ? -1 : b.id === selected ? 1 : 0));
+
+  async function saveRecord(kind: string, data: Record<string, unknown>) {
+    const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, data }) });
+    const body: any = await r.json();
+    if (!r.ok) throw new Error(body.error || "Could not save");
+    setEntries((prev) => [...prev, body]);
+    if (kind === "model") navigate({ view: "watch", id: body.id });
+  }
+  async function saveListing(l: LiveListing) {
+    const { match: _m, image: _i, ...data } = l;
+    try {
+      await saveRecord("observation", data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save");
+    }
+  }
+  async function remove(id: string) {
+    if (!confirm("Remove this record from your tracker?")) return;
+    try {
+      const r = await fetch(`/api/records?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("Could not remove record");
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  function exportData() {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), entries }, null, 2)], { type: "application/json" }));
+    a.download = "watchledger-data.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  const signedIn = Boolean(me?.user) || (loaded && !error.toLowerCase().includes("sign in"));
+  const openModal = (k: ModalKind) => {
+    if (k && k !== "about" && !me?.user && me) {
+      setError("Please sign in to save watches and prices.");
+      return;
+    }
+    setModal(k);
+  };
+
+  return (
+    <div className="app">
+      <SiteHeader route={route} me={me} brands={brands} ownedCount={owned.length} observationCount={observations.length} onNavigate={navigate} onModal={openModal} onExport={exportData} />
+      <main className="page">
+        {error && (
+          <div role="alert" className="notice error">
+            {error}
+            {error.toLowerCase().includes("sign in") && <a href={me?.signInPath || "/signin-with-chatgpt?return_to=%2F"} target="_top">Sign in</a>}
+            <button onClick={() => setError("")}>Dismiss</button>
+          </div>
+        )}
+        {!ready ? null : route.view === "watch" && route.id ? (
+          <WatchDetail
+            key={route.id}
+            modelId={route.id}
+            model={models[route.id]}
+            entries={entries}
+            sourceName={sourceName}
+            prefs={prefs}
+            onPrefs={setPrefs}
+            onNavigate={navigate}
+            onModal={openModal}
+            onSaveListing={saveListing}
+            onRemove={remove}
+            onModels={addModels}
+            signedIn={signedIn}
+          />
+        ) : route.view === "collection" ? (
+          <CollectionView entries={entries} models={models} prefs={prefs} onPrefs={setPrefs} onNavigate={navigate} onModal={openModal} onRemove={remove} />
+        ) : route.view === "records" ? (
+          <RecordsView entries={entries} models={models} sources={sources} prefs={prefs} onPrefs={setPrefs} onNavigate={navigate} onModal={openModal} onRemove={remove} onExport={exportData} />
+        ) : route.view === "sources" ? (
+          <SourcesView sources={sources} onModal={openModal} />
+        ) : route.view === "brands" ? (
+          <BrandsView brands={brands} onNavigate={navigate} />
+        ) : (
+          <HomeView
+            route={route}
+            brands={brands}
+            prefs={prefs}
+            onPrefs={setPrefs}
+            onNavigate={navigate}
+            priceFor={priceFor}
+            ownedIds={ownedIds}
+            recent={recentIds.map((id) => models[id]).filter(Boolean)}
+            ownedModels={[...ownedIds].map((id) => models[id]).filter(Boolean)}
+            onModels={addModels}
+          />
+        )}
+      </main>
+      <footer className="site-footer">
+        <span>WatchLedger · private watch price tracker</span>
+        <span>Catalog: Timepiecepedia (CC0) · Live prices: Tori.fi{" "}</span>
+        <button onClick={() => openModal("about")}>Data &amp; methodology <ArrowUpRight size={12} /></button>
+      </footer>
+      {modal && (
+        <RecordModal
+          kind={modal}
+          models={modalModels}
+          selected={selected}
+          sources={sources}
+          currency={prefs.currency}
+          onClose={() => setModal("")}
+          onOpen={openModal}
+          onSave={saveRecord}
+        />
+      )}
+    </div>
+  );
 }
-function PriceChart({points,currency}:{points:{date:string;value:number}[];currency:string}){const [hover,setHover]=useState<number|null>(null);const W=760,H=190;const vs=points.map(p=>p.value);const low=Math.min(...vs)*.95, high=Math.max(...vs)*1.05;const first=+new Date(points[0].date),last=+new Date(points.at(-1)!.date);const x=(i:number)=>last===first?W/2:60+(+new Date(points[i].date)-first)/(last-first)*(W-90);const y=(v:number)=>H-24-(v-low)/(high-low||1)*(H-45);return <div className="price-chart"><svg viewBox={`0 0 ${W} ${H+35}`} role="img" aria-label="Recorded price observations by date"><title>Observed prices, no estimated history</title>{[0,.5,1].map(k=><g key={k}><line x1="60" x2={W-20} y1={y(low+(high-low)*k)} y2={y(low+(high-low)*k)} stroke="#e8ebe5" strokeDasharray="3 4"/><text x="0" y={y(low+(high-low)*k)+4} fill="#939b94" fontSize="11">{money(low+(high-low)*k,currency)}</text></g>)}{points.length>1&&<polyline points={points.map((p,i)=>`${x(i)},${y(p.value)}`).join(" ")} fill="none" stroke="#315b4b" strokeWidth="2.5"/>}{points.map((p,i)=><g key={p.date} tabIndex={0} aria-label={`${p.date}: ${money(p.value,currency)}`} onMouseEnter={()=>setHover(i)} onMouseLeave={()=>setHover(null)} onFocus={()=>setHover(i)} onBlur={()=>setHover(null)}><circle cx={x(i)} cy={y(p.value)} r="12" fill="transparent"/><circle cx={x(i)} cy={y(p.value)} r={hover===i?6:4} fill="#315b4b" stroke="white" strokeWidth="2"/><title>{p.date}: {money(p.value,currency)}</title></g>)}<text x="60" y={H+15} fill="#939b94" fontSize="11">{points[0].date}</text>{points.length>1&&<text x={W-20} textAnchor="end" y={H+15} fill="#939b94" fontSize="11">{points.at(-1)!.date}</text>}</svg><p className="chart-hover">{hover!==null?`${points[hover].date} · ${money(points[hover].value,currency)}`:"Hover or focus a point to inspect its price"}</p></div>}

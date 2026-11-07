@@ -1,10 +1,61 @@
-# WatchProject
+# WatchProject — WatchLedger
 
-Private watch collection and regional market price tracker with an owned collection API, Tori.fi collector, and eBay Browse adapter. No selling functionality.
+WatchLedger is a private website for discovering watch models, tracking a personal collection, and comparing prices across global and local marketplaces.
 
-See [API.md](API.md) for endpoints, setup, coverage and limitations.
+[Open the website](https://watchledger-khai.breezydragonfly1.chatgpt.site)
 
-# vinext-starter
+## Purpose
+
+The goal is to help collectors understand the market for the watches they own or want to follow. Instead of checking several marketplaces separately, users can keep price observations, compare regions, and build a price history in one place.
+
+The website is for research and personal tracking. It has no listings for sale, checkout, or payment features.
+
+## What users can do
+
+- Search by watch model or reference from a search-first home page with live suggestions (brands and references with photos, keyboard navigation, recent searches).
+- Filter by brand, region, currency, price type and statistic directly under the search field.
+- Open a watch to see its market price from live exact-reference listings, a price range, and a chart where every dot is a listing you can click through to.
+- Bookmark live listings to build your own dated price history.
+- Reach My watches, Price records, Sources and data export from the profile menu (top right).
+- Browse a catalog of 40,757 entries across 224 brands and filter results by brand.
+- Add owned watches with purchase dates and prices, or add a missing reference.
+- Compare recorded asking prices and confirmed sale prices using averages or medians.
+- Filter market observations by region, country, source, currency, condition, seller type, and date range.
+- Compare the EU, US, Asia, and individual supported countries. Regions follow seller location, independently of currency.
+- View dated price history and export personal records as JSON.
+- Save local sources such as Tori.fi, a local dealer, or a Facebook watch group.
+
+## Market data
+
+WatchLedger has its own API for catalog searches, personal records, marketplace collection, and regional price summaries.
+
+| Source | Current support |
+| --- | --- |
+| Tori.fi | On-demand collection of public asking prices, with exact brand/reference matching and review before saving. |
+| eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
+| Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; record prices manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
+| Reddit r/Watchexchange | Live search of [WTS] posts via Reddit's official API when `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` are set; post dates give real history. |
+| Facebook groups | Manual observations; no integration configured. |
+| Custom marketplaces | Save a source name and link, then record observations manually. Adding a link does not create a scraper. |
+
+Collection runs on demand, not on a background schedule. Price history grows from saved observations; historical market data is not preloaded. Asking prices, confirmed sales, and the last asking price of a sold watch are kept distinct. Different currencies are never combined or automatically converted.
+
+## Catalog and photos
+
+Reference metadata comes from the [Timepiecepedia CC0 dataset](https://github.com/timepiecepedia/timepiecepedia-data), normalized and deduplicated, with existing application references retained. Coverage is broad but incomplete, and specifications have not all been independently verified. The catalog itself supplies no market prices.
+
+Original photo URLs were recovered for 39,883 catalog references. Missing or unavailable images show a plain watch icon. Photos are externally hosted; their availability and usage rights are separate from the catalog metadata license. Sources are credited in the interface.
+
+## Technical overview
+
+- React and Vinext frontend, hosted as a private Cloudflare Worker through Sites.
+- Cloudflare D1 and Drizzle for authenticated, user-owned records.
+- Server-side catalog search and pagination, so the full catalog is not downloaded into browser JavaScript.
+- Bounded marketplace requests, request-rate limits, and duplicate-observation checks.
+
+See [API.md](API.md) for endpoints, collector setup, supported currencies, and limitations. See [data/catalog/README.md](data/catalog/README.md) for catalog provenance and [PROJECT-NOTES.md](PROJECT-NOTES.md) for implementation notes.
+
+## Framework and hosting reference
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
@@ -56,7 +107,7 @@ Local tool usage metrics are disabled by default. Set `WRANGLER_SEND_METRICS=tru
 - the remaining `scripts/` files select execution profiles and run installation, development, and builds; the plugin's helpers orchestrate the Sites lifecycle
 - `dist/` contains generated deployment output; `.vinext/`, `.wrangler/`, and `.sites-runtime/` contain ignored local tool state
 - `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
+- `db/schema.ts` defines user-owned tracker records
 - `@cloudflare/workers-types` provides Worker types; `cloudflare-env.d.ts` declares optional `DB`/`BUCKET` bindings—update these declarations if binding names change
 - `examples/d1/` contains an optional D1 example surface
 - `drizzle.config.ts` supports local migration generation when needed

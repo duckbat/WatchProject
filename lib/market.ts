@@ -37,3 +37,7 @@ export const watchPhotos:Record<string,{url:string;source:string;page:string}>={
 };
 
 export function latestListings<T extends {data:Observation}>(entries:T[]):T[]{const latest=new Map<string,T>();for(const e of [...entries].sort((a,b)=>a.data.observedAt.localeCompare(b.data.observedAt))){latest.set(e.data.url||JSON.stringify(e),e);}return [...latest.values()];}
+
+/** Seller-side marketplace commission. The listed price is what the buyer pays; the seller receives price × (1 − rate). */
+export const marketplaceFees:Record<string,{rate:number;label:string}>={chrono24:{rate:0.0695,label:'Chrono24 commission'}};
+export function feeBreakdown(price:number,sourceId='chrono24'){const fee=marketplaceFees[sourceId];if(!fee)return null;const commission=price*fee.rate;return {rate:fee.rate,label:fee.label,listed:price,commission,sellerNet:price-commission,listToNet:price/(1-fee.rate)};}

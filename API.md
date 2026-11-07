@@ -54,3 +54,17 @@ Reimport from downloaded source files: `python3 scripts/import-catalog.py /path/
 Original exact-reference photo URLs are restored from `image_url_source` in the upstream JSON archive (39,883 records). The CSV mirror paths are not reliable. Refresh with `python3 scripts/import-catalog.py /path/to/references.csv --license-path /path/to/LICENSE --image-archive /path/to/upstream.tar.gz`. The repair step reads JSON in memory without extracting or executing repository files. Records without original URLs keep an empty photo value and render the watch icon. Third-party image availability and rights remain separate from the CC0 metadata license.
 
 Asia is matched by the seller's country/market code, covering East, South, Southeast, Central and Western Asia including Hong Kong, Macao and Taiwan. Cyprus also appears in the EU group. Currency is independent of region; no conversion is applied. Adding Asia does not enable a new marketplace integration.
+
+## Live listings, suggestions and profile (Nov 2026)
+
+`GET /api/market/live?modelId=<id>[&refresh=1]` returns unsaved, live asking prices for the watch detail page: `{listings, sources, fetchedAt}`. Each listing has `match: "exact" | "similar"` and an optional `image`. Exact matches name the reference (catalog variant suffixes such as `126200-0001` also match `126200`); similar matches share brand and model line (e.g. "Datejust 36") and are never used for the market price. Queries Tori.fi (reference search plus model-line search) and eBay when `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` are set. Results are cached per watch for 20 minutes per isolate; uncached lookups are limited to 12 per user per minute. Requires sign-in. Save a listing with `POST /api/records` as before (the UI's bookmark button).
+
+`GET /api/catalog?q=…&limit=6` powers search suggestions (`limit` 1–24, default 24). Results are ranked: exact reference, reference prefix, brand + model, then other token matches. `GET /api/catalog?facets=brands` returns `[{brand, count}]` for the brand directory.
+
+`GET /api/me` returns the signed-in user's name/email and the sign-out path for the profile menu.
+
+## r/Watchexchange and Chrono24
+
+- **r/Watchexchange**: Reddit now blocks anonymous JSON requests, so the live endpoint uses Reddit's official API with an app-only token. Create a free "script" app at https://www.reddit.com/prefs/apps and set `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` as server secrets. `[WTS]`/`[WTT]` posts from the last year are matched by reference (title or body); the first price in the title or body is used, with its currency (`$`→USD, `€`→EUR, `£`→GBP). The post date becomes the observation date, so these build a real price history. Posts flaired or titled "Sold" are `sold-asking`. Without credentials the page shows a "Search r/Watchexchange" link instead.
+- **Chrono24**: automated requests receive a bot challenge, and WatchLedger does not bypass it. Each watch page links to the Chrono24 search for that reference; prices are recorded manually with source Chrono24.
+- **Chrono24 fees**: Chrono24 keeps 6.95% of the sale (`marketplaceFees` in `lib/market.ts`). The listed price is what the buyer pays; the seller receives `price × 0.9305`. To receive X, list at `X / 0.9305`. The watch page has a calculator, and Chrono24 records show "Seller gets" next to the price.

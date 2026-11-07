@@ -24,3 +24,18 @@ await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Respons
 console.log('Collector checks passed: exact matching, duplicates, malformed data, currencies, origin validation, price types, source errors and response limits.');
 
 const japan=parseEbay({itemSummaries:[{title:'Seiko SPB143',price:{value:'90000',currency:'JPY'},itemLocation:{country:'JP'},itemWebUrl:'https://www.ebay.com/itm/321',conditionId:'3000'}]},model,now);assert.equal(japan[0].country,'JP');assert.equal(japan[0].currency,'JPY');assert.equal(japan[0].price,90000);
+
+const {extractPrice,parseRedditListings}=await import('../.sites-runtime/test-modules/collectors.mjs');
+assert.deepEqual(extractPrice('[WTS] Rolex Datejust 126200 - $8,500 shipped'),{price:8500,currency:'USD'});
+assert.deepEqual(extractPrice('Price 7.900€'),{price:7900,currency:'EUR'});
+assert.deepEqual(extractPrice('£6k or offers'),{price:6000,currency:'GBP'});
+assert.deepEqual(extractPrice('EUR 10500'),{price:10500,currency:'EUR'});
+assert.equal(extractPrice('36mm, 2021 full set'),null);
+const dj={id:'dj',brand:'Rolex',name:'Datejust 36 Stainless Steel',family:'Datejust',reference:'126200-0001',color:'#000',size:'36 mm'};
+const post=(o)=>({data:{title:'[WTS] Rolex Datejust 126200 blue dial - $8,200',selftext:'',permalink:'/r/Watchexchange/comments/abc123/x/',created_utc:1767225600,link_flair_text:'',...o}});
+const rx=parseRedditListings({data:{children:[post({}),post({permalink:'/r/Watchexchange/comments/def456/y/',link_flair_text:'Sold'}),post({title:'[WTB] Rolex 126200 $8000',permalink:'/r/Watchexchange/comments/ghi/z/'}),post({permalink:'https://evil.example/'}),post({title:'[WTS] Rolex Datejust 36 16200 $6,000',permalink:'/r/Watchexchange/comments/jkl/w/'})]}},dj);
+assert.equal(rx.length,3);assert.equal(rx[0].price,8200);assert.equal(rx[0].currency,'USD');assert.equal(rx[0].observedAt,'2026-01-01');assert.equal(rx[0].match,'exact');
+assert.equal(rx[1].status,'sold-asking');assert.equal(rx[2].match,'similar');assert(rx.every(r=>r.url.startsWith('https://www.reddit.com/r/Watchexchange/comments/')));
+const {feeBreakdown}=await import('../.sites-runtime/test-modules/market.mjs');
+const f=feeBreakdown(10000);assert.equal(Math.round(f.commission),695);assert.equal(Math.round(f.sellerNet),9305);assert.equal(Math.round(f.listToNet),10747);assert.equal(feeBreakdown(100,'tori'),null);
+console.log('Reddit parsing, price extraction and Chrono24 fee checks passed.');
