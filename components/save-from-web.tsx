@@ -161,7 +161,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
           <p className="subtitle clip-title">{clip.title || clip.url}</p>
         </div>
       </div>
-      <form className="clip-grid" onSubmit={submit}>
+      <div className="clip-grid">
         <section className="panel clip-panel">
           <h2><MousePointerClick size={16} />Which watch is it?</h2>
           {finding ? <p className="muted-line">Looking for references in the listing…</p> : candidates.length ? (
@@ -195,7 +195,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
           )}
         </section>
 
-        <section className="panel clip-panel clip-form">
+        <form className="panel clip-panel clip-form" onSubmit={submit}>
           <h2>Price details</h2>
           <label>Source<select value={form.sourceId} onChange={set('sourceId')}>{sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <div className="form-grid">
@@ -224,8 +224,8 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
           <div className="form-actions">
             <button className="primary" disabled={busy || !model}>{busy ? 'Saving…' : model ? `Save price for ${model.brand} ${model.reference}` : 'Choose a watch first'}</button>
           </div>
-        </section>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,11 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUpRight, Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Plus, RefreshCw, Trash2, Watch } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Pencil, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
 import { countries, facebookGroupSearchUrl, feeBreakdown, inRegion, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors';
 import PriceScatter, { type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
+import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
+import { computeMetrics, type MetricPrice } from '../lib/metrics';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
 import { matchesPrefs, periodStart, periods, regions, statuses, today, type LiveListing, type LiveResult, type ModalKind, type Prefs, type Route } from './shared';
@@ -24,6 +26,7 @@ type Props = {
   onModels: (ms: Model[]) => void;
   signedIn: boolean;
   groupSources?: { id: string; name: string; url?: string }[];
+  onSaveRecord: (kind: string, data: Record<string, unknown>) => Promise<void>;
 };
 
 function ago(iso: string) {
@@ -31,7 +34,7 @@ function ago(iso: string) {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
 }
 
-export default function WatchDetail({ modelId, model, entries, sourceName, prefs, onPrefs, onNavigate, onModal, onSaveListing, onRemove, onModels, signedIn, groupSources = [] }: Props) {
+export default function WatchDetail({ modelId, model, entries, sourceName, prefs, onPrefs, onNavigate, onModal, onSaveListing, onRemove, onModels, signedIn, groupSources = [], onSaveRecord }: Props) {
   const [live, setLive] = useState<LiveResult | null>(null);
   const [liveState, setLiveState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveError, setLiveError] = useState('');
@@ -40,6 +43,11 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [showSimilar, setShowSimilar] = useState(false);
   const [related, setRelated] = useState<Model[]>([]);
   const [sellInput, setSellInput] = useState('');
+  const [mainPhoto, setMainPhoto] = useState<string | null>(null);
+  const [chartTab, setChartTab] = useState<'listings' | 'volume' | 'days'>('listings');
+  const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set());
+  const [retailEdit, setRetailEdit] = useState(false);
+  const [retailInput, setRetailInput] = useState('');
 
   useEffect(() => {
     if (model) return;
@@ -71,6 +79,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   useEffect(() => {
     setLive(null);
     setShowSimilar(false);
+    setMainPhoto(null);
     if (signedIn) loadLive();
     else {
       setLiveState('error');
@@ -140,6 +149,28 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     return { r, name, n: pool.length, v: summarize(pool, prefs.method) };
   });
 
+  // ---- WatchCharts-style metrics (exact reference, selected currency and region, all dates) ----
+  const regionOk = (country: string) => inRegion(country, prefs.region);
+  const metricPrices: MetricPrice[] = [
+    ...saved.filter((e) => e.data.currency === prefs.currency && regionOk(e.data.country) && !exact.some((l) => e.data.url && l.url === e.data.url)).map((e) => ({ date: e.data.observedAt, price: e.data.price, status: e.data.status, condition: e.data.condition, contents: e.data.contents, sellerType: e.data.sellerType })),
+    ...exact.filter((l) => l.currency === prefs.currency && regionOk(l.country)).map((l) => ({ date: l.listedAt || l.observedAt, price: l.price, status: l.status, condition: l.condition, contents: l.contents, sellerType: l.sellerType, active: l.status === 'asking' && l.sourceId !== 'reddit', listedAt: l.listedAt })),
+  ];
+  const retails = entries.filter((e) => e.kind === 'retail' && e.data.modelId === modelId).sort((a, b) => String(b.data.asOf).localeCompare(String(a.data.asOf)));
+  const retail = retails.find((e) => e.data.currency === prefs.currency);
+  const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
+  const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
+  const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length }));
+  const chartPoints = points.filter((p) => !hiddenSources.has(p.source));
+  const photos = [...new Set(exact.concat(similar).map((l) => l.image).filter(Boolean) as string[])].slice(0, 6);
+  const fmtDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  async function saveRetail() {
+    const price = Number(retailInput);
+    if (!(price > 0)) return;
+    await onSaveRecord('retail', { modelId, price, currency: prefs.currency, asOf: today() });
+    setRetailEdit(false);
+    setRetailInput('');
+  }
+
   async function save(l: LiveListing) {
     setSaving(l.url);
     try {
@@ -186,11 +217,26 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <span aria-current="page">Ref. {model.reference}</span>
       </nav>
 
-      <section className="detail-top">
-        <div className="detail-photo">
-          <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />
-          {owned.length > 0 && <span className="owned-tag">In my watches</span>}
+      <section className="detail-hero">
+        <div className="detail-gallery">
+          <div className="detail-photo">
+            {mainPhoto ? <img className="listing-hero-photo" src={mainPhoto} alt={`${model.brand} ${model.reference} from a listing`} referrerPolicy="no-referrer" /> : <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />}
+            {owned.length > 0 && <span className="owned-tag">In my watches</span>}
+          </div>
+          {photos.length > 0 && (
+            <div className="photo-strip" aria-label="Photos from listings">
+              <button className={!mainPhoto ? 'active' : ''} onClick={() => setMainPhoto(null)} aria-label="Catalog photo">
+                <WatchPhoto model={model} credit={false} iconSize={18} />
+              </button>
+              {photos.map((src) => (
+                <button key={src} className={mainPhoto === src ? 'active' : ''} onClick={() => setMainPhoto(src)} aria-label="Photo from a listing">
+                  <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
         <div className="detail-info">
           <div className="detail-title">
             <div>
@@ -203,56 +249,79 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               </p>
             </div>
             <div className="detail-actions">
-              <button className="secondary" onClick={() => onModal('observation')}>
-                <Plus size={15} />Record a price
-              </button>
-              <button className="primary" onClick={() => onModal('owned')}>
-                <Plus size={15} />Add to my watches
-              </button>
+              <button className="secondary" onClick={() => onModal('observation')}><Plus size={15} />Record a price</button>
+              <button className="primary" onClick={() => onModal('owned')}><Plus size={15} />Add to my watches</button>
             </div>
           </div>
 
-          <div className="price-cards">
-            <article className="price-card main">
-              <p>Market price</p>
-              {liveState === 'loading' && marketPrice === null ? (
-                <span className="price-loading">Checking marketplaces…</span>
+          <div className="price-box">
+            <div className="price-row">
+              <div>
+                <h3>Retail price <span className="info" title="Price from an authorized retailer. Enter it yourself; it is used for value retention." role="img" aria-label="About retail price"><Info size={13} /></span></h3>
+                <p>{retail ? `You entered it on ${fmtDate(retail.data.asOf)}` : 'Price from an authorized retailer'}</p>
+              </div>
+              {retailEdit ? (
+                <form className="retail-form" onSubmit={(e) => { e.preventDefault(); saveRetail(); }}>
+                  <input autoFocus type="number" min="1" step="1" placeholder={`Retail in ${prefs.currency}`} value={retailInput} onChange={(e) => setRetailInput(e.target.value)} />
+                  <button className="primary" disabled={!(Number(retailInput) > 0)}>Save</button>
+                  <button type="button" className="text-btn" onClick={() => setRetailEdit(false)}>Cancel</button>
+                </form>
+              ) : retail ? (
+                <div className="price-value">
+                  <strong><BadgeCheck size={20} className="retail-check" />{money(retail.data.price, retail.data.currency)}</strong>
+                  <button className="text-btn" onClick={() => { setRetailInput(String(retail.data.price)); setRetailEdit(true); }}><Pencil size={12} />Edit</button>
+                </div>
               ) : (
-                <strong>{money(marketPrice, prefs.currency)}</strong>
+                <button className="secondary" onClick={() => setRetailEdit(true)}><Plus size={14} />Add retail price</button>
               )}
-              <small>
-                {marketPrice !== null
-                  ? marketBasis
-                  : liveState === 'loading'
-                    ? 'Looking for exact-reference listings'
-                    : similarPrice !== null
-                      ? `No exact listing live now · similar models ${money(similarPrice, prefs.currency)}`
-                      : 'No exact-reference listings found right now'}
-              </small>
-            </article>
-            <article className="price-card">
-              <p>Listing price range</p>
-              <strong>{lows.length ? (lows.length === 1 ? money(lows[0], prefs.currency) : `${money(Math.min(...lows), prefs.currency)} – ${money(Math.max(...lows), prefs.currency)}`) : '—'}</strong>
-              <small>{exactIn.length} exact listing{exactIn.length === 1 ? '' : 's'}{similarIn.length ? ` · ${similarIn.length} similar` : ''}</small>
-            </article>
-            <article className="price-card">
-              <p>Your saved prices</p>
-              <strong>{money(savedPrice, prefs.currency)}</strong>
-              <small>{savedShown.length} observation{savedShown.length === 1 ? '' : 's'} · {periods.find(([v]) => v === prefs.period)?.[1]}</small>
-            </article>
-            {owned.length > 0 && (
-              <article className="price-card">
-                <p>You paid</p>
-                <strong>{money(owned[0].data.cost, owned[0].data.currency)}</strong>
-                <small>
-                  {marketPrice !== null && owned[0].data.currency === prefs.currency
-                    ? `${marketPrice - owned[0].data.cost >= 0 ? '+' : ''}${money(marketPrice - owned[0].data.cost, prefs.currency)} vs market`
-                    : `Bought ${owned[0].data.purchaseDate}`}
-                </small>
-              </article>
+            </div>
+            <div className="price-row market">
+              <div>
+                <h3>Market price <span className="info" title="Median (or average) asking price of listings that name this exact reference, in the selected currency and region. Falls back to your saved prices." role="img" aria-label="About market price"><Info size={13} /></span></h3>
+                <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : similarPrice !== null ? `No exact listing now · similar models ${money(similarPrice, prefs.currency)}` : 'No exact-reference listings found'}</p>
+              </div>
+              <div className="price-value">
+                <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
+                <small>as of {fmtDate(today())}</small>
+              </div>
+            </div>
+            {(metrics.dealerPrice !== null || fees) && (
+              <div className="price-foot">
+                <Store size={16} />
+                {metrics.dealerPrice !== null ? (
+                  <span>Expect to pay <strong>{money(metrics.dealerPrice, prefs.currency)}</strong> when buying from a dealer</span>
+                ) : fees ? (
+                  <span>Selling on Chrono24 at this price, you would receive <strong>{money(fees.sellerNet, prefs.currency)}</strong> after the 6.95% fee</span>
+                ) : null}
+              </div>
             )}
           </div>
 
+          {(metrics.newPremium !== null || metrics.noBoxDiscount !== null || metrics.change1y !== null) && (
+            <div className="premium-chips">
+              {metrics.newPremium !== null && <span className={metrics.newPremium >= 0 ? 'up' : 'down'}>{metrics.newPremium >= 0 ? '+' : ''}{(metrics.newPremium * 100).toFixed(1)}% in new condition</span>}
+              {metrics.noBoxDiscount !== null && <span className={metrics.noBoxDiscount >= 0 ? 'up' : 'down'}>{metrics.noBoxDiscount >= 0 ? '+' : ''}{(metrics.noBoxDiscount * 100).toFixed(1)}% without box/papers</span>}
+              {metrics.change1y !== null && <span className={metrics.change1y >= 0 ? 'up' : 'down'}>{metrics.change1y >= 0 ? '+' : ''}{(metrics.change1y * 100).toFixed(1)}% over 1 year</span>}
+            </div>
+          )}
+
+          <div className="history-card">
+            <div className="region-tabs" role="tablist" aria-label="Region">
+              {[['Global', 'Global'], ['EU', 'Europe'], ['US', 'America'], ['Asia', 'Asia'], ['FI', 'Finland']].map(([v, l]) => (
+                <button key={v} role="tab" aria-selected={prefs.region === v} className={prefs.region === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, region: v })}>{l}</button>
+              ))}
+            </div>
+            <div className="period-tabs inline" role="tablist" aria-label="Time range">
+              {periods.map(([v, l]) => (
+                <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>{l}</button>
+              ))}
+            </div>
+            <PriceHistory prices={historyPrices} currency={prefs.currency} period={prefs.period} method={prefs.method} />
+          </div>
+        </div>
+      </section>
+
+      <section className="live-strip">
           <p className="live-status" role="status">
             <span className={`live-dot ${liveState}`} />
             {liveState === 'loading'
@@ -304,6 +373,83 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
           )}
 
+      </section>
+
+      <section className="panel chart-card">
+        <div className="chart-card-head">
+          <div>
+            <h2>Charts &amp; metrics</h2>
+            <p>{model.brand} {baseReference(model.reference)} · {prefs.currency}{prefs.region !== 'Global' ? ` · ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''}</p>
+          </div>
+          <div className="period-tabs" role="tablist" aria-label="Time range">
+            {periods.map(([v, l]) => (
+              <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="chart-tabs" role="tablist" aria-label="Chart">
+          {([['listings', 'Listings'], ['volume', 'Volume'], ['days', 'Days on market']] as const).map(([v, l]) => (
+            <button key={v} role="tab" aria-selected={chartTab === v} className={chartTab === v ? 'active' : ''} onClick={() => setChartTab(v)}>{l}</button>
+          ))}
+        </div>
+        {chartTab === 'listings' && (
+          <>
+            <div className="chart-controls">
+              {sourcesInChart.length > 0 && (
+                <div className="source-toggle" role="group" aria-label="Sources">
+                  {sourcesInChart.map(({ name, n }) => (
+                    <button key={name} aria-pressed={!hiddenSources.has(name)} className={hiddenSources.has(name) ? '' : 'on'} onClick={() => setHiddenSources((h) => { const x = new Set(h); if (x.has(name)) x.delete(name); else x.add(name); return x; })}>
+                      {name} ({n})
+                    </button>
+                  ))}
+                </div>
+              )}
+              <FilterBar prefs={prefs} onPrefs={onPrefs} extended />
+            </div>
+            {chartPoints.length ? (
+              <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={livePrice ?? null} />
+            ) : (
+              <div className="chart-empty">
+                <div className="empty-chart-lines" />
+                <h3>{liveState === 'loading' ? 'Loading prices…' : 'No prices for these filters yet'}</h3>
+                <p>{liveState === 'loading' ? 'Checking live marketplaces.' : 'Try another currency or region, or record a price you have seen.'}</p>
+              </div>
+            )}
+          </>
+        )}
+        {chartTab === 'volume' && <VolumeChart period={prefs.period} points={metricPrices.filter((p) => prefs.period === '36500' || p.date >= periodStart(prefs.period)).map((p) => ({ date: p.date, sold: p.status !== 'asking' }))} />}
+        {chartTab === 'days' && <DaysChart ages={ages} />}
+        <MetricsGrid m={metrics} hasRetail={Boolean(retail)} onRetail={() => { setRetailEdit(true); scrollTo({ top: 0, behavior: 'smooth' }); }} />
+      </section>
+
+      <RiskPanel m={metrics} reference={`${model.brand} ${baseReference(model.reference)}`} />
+
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <h2>Listings for this reference <span className="count-pill">{exactIn.length}</span></h2>
+            <p>Listings that name this exact reference, newest first (Tori.fi live, plus r/Watchexchange and eBay when connected). Bookmark one to add it to your price history.</p>
+          </div>
+        </div>
+        {liveState === 'loading' && !live ? (
+          <div className="listing-grid">{Array.from({ length: 4 }, (_, i) => <div key={i} className="listing skeleton" />)}</div>
+        ) : exactIn.length ? (
+          <div className="listing-grid">{sortedExact.map((l) => <ListingCard key={l.url} l={l} />)}</div>
+        ) : (
+          <p className="muted-line">No exact-reference listings are live in {prefs.currency}{prefs.region !== 'Global' ? ` for ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''} right now.</p>
+        )}
+        {similarIn.length > 0 && (
+          <div className="similar-block">
+            <button className="text-btn" aria-expanded={showSimilar} onClick={() => setShowSimilar((v) => !v)}>
+              {showSimilar ? 'Hide' : 'Show'} {similarIn.length} similar listings <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
+            </button>
+            <p className="fine">Same model line, but the title does not confirm this reference. They are not used for the market price.</p>
+            {showSimilar && <div className="listing-grid">{similarIn.map((l) => <ListingCard key={l.url} l={l} />)}</div>}
+          </div>
+        )}
+      </section>
+
+      <section className="panel fee-panel">
           <div className="fee-card">
             <div className="fee-head">
               <div>
@@ -336,80 +482,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               </button>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="panel chart-card">
-        <div className="chart-card-head">
-          <div>
-            <h2>Price history</h2>
-            <p>{model.brand} {baseReference(model.reference)} · exact-reference prices in {prefs.currency}{prefs.region !== 'Global' ? ` · ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''}</p>
-          </div>
-          <div className="period-tabs" role="tablist" aria-label="Time range">
-            {periods.map(([v, l]) => (
-              <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-        <PriceHistory prices={historyPrices} currency={prefs.currency} period={prefs.period} method={prefs.method} />
-      </section>
-
-      <section className="panel chart-card">
-        <div className="chart-card-head">
-          <div>
-            <h2>Prices &amp; listings</h2>
-            <p>Each dot is a listing or a price you saved. Click one to go to the listing.</p>
-          </div>
-          <div className="period-tabs" role="tablist" aria-label="Time range">
-            {periods.map(([v, l]) => (
-              <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-        <FilterBar prefs={prefs} onPrefs={onPrefs} extended />
-        {points.length ? (
-          <PriceScatter points={points} currency={prefs.currency} period={prefs.period} marketPrice={livePrice ?? null} />
-        ) : (
-          <div className="chart-empty">
-            <div className="empty-chart-lines" />
-            <h3>{liveState === 'loading' ? 'Loading prices…' : 'No prices for these filters yet'}</h3>
-            <p>{liveState === 'loading' ? 'Checking live marketplaces.' : 'Try another currency or region, or record a price you have seen.'}</p>
-            {liveState !== 'loading' && (
-              <button className="secondary" onClick={() => onModal('observation')}>
-                <Plus size={15} />Record a price
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>Listings for this reference <span className="count-pill">{exactIn.length}</span></h2>
-            <p>Listings that name this exact reference, newest first (Tori.fi live, plus r/Watchexchange and eBay when connected). Bookmark one to add it to your price history.</p>
-          </div>
-        </div>
-        {liveState === 'loading' && !live ? (
-          <div className="listing-grid">{Array.from({ length: 4 }, (_, i) => <div key={i} className="listing skeleton" />)}</div>
-        ) : exactIn.length ? (
-          <div className="listing-grid">{sortedExact.map((l) => <ListingCard key={l.url} l={l} />)}</div>
-        ) : (
-          <p className="muted-line">No exact-reference listings are live in {prefs.currency}{prefs.region !== 'Global' ? ` for ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''} right now.</p>
-        )}
-        {similarIn.length > 0 && (
-          <div className="similar-block">
-            <button className="text-btn" aria-expanded={showSimilar} onClick={() => setShowSimilar((v) => !v)}>
-              {showSimilar ? 'Hide' : 'Show'} {similarIn.length} similar listings <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
-            </button>
-            <p className="fine">Same model line, but the title does not confirm this reference. They are not used for the market price.</p>
-            {showSimilar && <div className="listing-grid">{similarIn.map((l) => <ListingCard key={l.url} l={l} />)}</div>}
-          </div>
-        )}
       </section>
 
       <section className="detail-split">

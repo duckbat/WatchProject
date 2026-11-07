@@ -176,6 +176,7 @@ export default function Home() {
             onRemove={remove}
             onModels={addModels}
             signedIn={signedIn}
+            onSaveRecord={saveRecord}
             groupSources={sources.filter((s) => /facebook\.com\/groups\//i.test(s.url || ''))}
           />
         ) : route.view === "collection" ? (

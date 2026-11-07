@@ -7,11 +7,11 @@ export type ChartKind = 'live' | 'similar' | 'asking' | 'confirmed-sale' | 'sold
 export type ChartPoint = { id: string; date: string; price: number; kind: ChartKind; title: string; url?: string; source: string; country: string; undated?: boolean };
 
 export const kindStyle: Record<ChartKind, { label: string; color: string; hollow?: boolean }> = {
-  live: { label: 'Listings (exact ref.)', color: 'var(--c-live)' },
-  similar: { label: 'Similar listings', color: 'var(--c-similar)', hollow: true },
-  asking: { label: 'Saved asking prices', color: 'var(--c-asking)' },
-  'confirmed-sale': { label: 'Confirmed sales', color: 'var(--c-sold)' },
-  'sold-asking': { label: 'Sold · last ask', color: 'var(--c-sold-ask)' },
+  live: { label: 'Unsold', color: 'var(--c-asking)' },
+  asking: { label: 'Unsold (saved)', color: '#7ea6e6' },
+  'confirmed-sale': { label: 'Sold', color: 'var(--c-sold)' },
+  'sold-asking': { label: 'Sold (last ask)', color: '#f2a07b' },
+  similar: { label: 'Similar models', color: 'var(--c-similar)', hollow: true },
 };
 
 const W = 900, H = 330, L = 74, R = 18, T = 18, B = 36;
