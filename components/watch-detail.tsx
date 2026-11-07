@@ -1,8 +1,9 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Plus, RefreshCw, Trash2, Watch } from 'lucide-react';
-import { countries, feeBreakdown, inRegion, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
+import { countries, facebookGroupSearchUrl, feeBreakdown, inRegion, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
+import { baseReference } from '../lib/collectors';
 import PriceScatter, { type ChartPoint } from './price-scatter';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
@@ -21,6 +22,7 @@ type Props = {
   onRemove: (id: string) => void;
   onModels: (ms: Model[]) => void;
   signedIn: boolean;
+  groupSources?: { id: string; name: string; url?: string }[];
 };
 
 function ago(iso: string) {
@@ -28,7 +30,7 @@ function ago(iso: string) {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
 }
 
-export default function WatchDetail({ modelId, model, entries, sourceName, prefs, onPrefs, onNavigate, onModal, onSaveListing, onRemove, onModels, signedIn }: Props) {
+export default function WatchDetail({ modelId, model, entries, sourceName, prefs, onPrefs, onNavigate, onModal, onSaveListing, onRemove, onModels, signedIn, groupSources = [] }: Props) {
   const [live, setLive] = useState<LiveResult | null>(null);
   const [liveState, setLiveState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveError, setLiveError] = useState('');
@@ -282,6 +284,17 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                   )}
                 </span>
               ))}
+              {groupSources.map((g) => {
+                const href = facebookGroupSearchUrl(g.url || '', `${model.brand} ${baseReference(model.reference)}`);
+                return href ? (
+                  <span key={g.id} className="source-chip blocked" title="Facebook has no API for groups. Search the group, then save posts with the Save to WatchLedger button.">
+                    <span className="dot" />
+                    {g.name}
+                    <small>save button</small>
+                    <a href={href} target="_blank" rel="noreferrer">Search group <ArrowUpRight size={12} /></a>
+                  </span>
+                ) : null;
+              })}
             </div>
           )}
 

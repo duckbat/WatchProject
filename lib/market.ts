@@ -12,6 +12,7 @@ export const defaultSources = [
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},
  {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Manual observations"},
  {id:"facebook",name:"Facebook groups",url:"https://www.facebook.com/groups/",country:"",mode:"Manual observations"},
+ {id:"fb-1424920254386825",name:"Facebook watch group",url:"https://www.facebook.com/groups/1424920254386825/",country:"",mode:"Manual observations"},
  {id:"web",name:"Other website",url:"",country:"",mode:"Manual observations"},
 ];
 export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string};
@@ -43,3 +44,7 @@ export function latestListings<T extends {data:Observation}>(entries:T[]):T[]{co
 /** Seller-side marketplace commission. The listed price is what the buyer pays; the seller receives price × (1 − rate). */
 export const marketplaceFees:Record<string,{rate:number;label:string}>={chrono24:{rate:0.0695,label:'Chrono24 commission'}};
 export function feeBreakdown(price:number,sourceId='chrono24'){const fee=marketplaceFees[sourceId];if(!fee)return null;const commission=price*fee.rate;return {rate:fee.rate,label:fee.label,listed:price,commission,sellerNet:price-commission,listToNet:price/(1-fee.rate)};}
+
+/** Facebook group sources: their numeric ID, and a link to Facebook's own in-group search (works while signed in to Facebook). */
+export function facebookGroupId(url=''){return url.match(/facebook\.com\/groups\/([\w.]+)/i)?.[1]||null;}
+export function facebookGroupSearchUrl(url:string,query:string){const id=facebookGroupId(url);return id?`https://www.facebook.com/groups/${id}/search/?${new URLSearchParams({q:query})}`:null;}

@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, BookmarkPlus, ChevronDown, Database, Download, Layers3, ListChecks, LogIn, LogOut, Plus, Watch } from 'lucide-react';
-import type { Model } from '../lib/market';
+import { currencies, type Model } from '../lib/market';
 import SearchBox from './search-box';
-import type { BrandFacet, Me, ModalKind, Route } from './shared';
+import type { BrandFacet, Me, ModalKind, Prefs, Route } from './shared';
 
 type Props = {
   route: Route;
@@ -14,9 +14,11 @@ type Props = {
   onNavigate: (r: Route) => void;
   onModal: (k: ModalKind) => void;
   onExport: () => void;
+  prefs: Prefs;
+  onPrefs: (p: Prefs) => void;
 };
 
-export default function SiteHeader({ route, me, brands, ownedCount, observationCount, onNavigate, onModal, onExport }: Props) {
+export default function SiteHeader({ route, me, brands, ownedCount, observationCount, onNavigate, onModal, onExport, prefs, onPrefs }: Props) {
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -83,6 +85,15 @@ export default function SiteHeader({ route, me, brands, ownedCount, observationC
             />
           </div>
         )}
+
+        <label className="currency-picker" title="Currency for all prices">
+          <span className="currency-symbol" aria-hidden>{new Intl.NumberFormat('en', { style: 'currency', currency: prefs.currency, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((p) => p.type === 'currency')?.value}</span>
+          <select aria-label="Currency" value={prefs.currency} onChange={(e) => onPrefs({ ...prefs, currency: e.target.value })}>
+            {currencies.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </label>
 
         <div className="user-menu" ref={menuRef}>
           <button className="profile-button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>

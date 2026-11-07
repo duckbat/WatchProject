@@ -1,14 +1,14 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Bookmark, Check, MousePointerClick, Search } from 'lucide-react';
-import { countries, currencies, feeBreakdown, money, type Model } from '../lib/market';
+import { countries, currencies, facebookGroupId, feeBreakdown, money, type Model } from '../lib/market';
 import { extractPrice } from '../lib/collectors';
 import SearchBox from './search-box';
 import WatchPhoto from './watch-photo';
 import { statuses, today, type BrandFacet, type Route } from './shared';
 
 type Clip = { url: string; title: string; price?: string | number | null; currency?: string | null; image?: string | null; text?: string; site?: string };
-type Source = { id: string; name: string; country?: string };
+type Source = { id: string; name: string; country?: string; url?: string };
 
 /**
  * Runs on the listing page the user is viewing. It reads only that page (structured data, meta tags,
@@ -46,7 +46,10 @@ export function BookmarkletInstall() {
   );
 }
 
-function guessSource(site = '', url = '') {
+function guessSource(site = '', url = '', sources: Source[] = []) {
+  const group = facebookGroupId(url);
+  const saved = group && sources.find((s) => facebookGroupId(s.url) === group);
+  if (saved) return saved.id;
   const h = (site || (() => { try { return new URL(url).hostname; } catch { return ''; } })()).toLowerCase();
   if (h.includes('chrono24')) return 'chrono24';
   if (h.includes('facebook') || h.includes('fb.com')) return 'facebook';
@@ -77,7 +80,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
       const text = `${d.title || ''}\n${d.text || ''}`;
       const structured = Number(String(d.price ?? '').replace(/[^\d.]/g, ''));
       const guess = structured > 0 ? { price: structured, currency: String(d.currency || '').toUpperCase() } : extractPrice(text);
-      const sourceId = guessSource(d.site, d.url);
+      const sourceId = guessSource(d.site, d.url, sources);
       setForm((f) => ({
         ...f,
         sourceId,

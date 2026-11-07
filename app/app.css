@@ -367,3 +367,12 @@
 .clip-form input, .clip-form select { width: 100%; font-size: 14px; }
 .clip-form .fee-live { margin: -4px 0 12px; }
 @media (max-width: 900px) { .clip-grid { grid-template-columns: 1fr; } }
+/* Header currency picker */
+.currency-picker { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; padding: 0 4px 0 12px; background: var(--surface); flex-shrink: 0; margin-left: auto; }
+.header-search ~ .currency-picker { margin-left: 0; }
+.currency-picker:hover { border-color: #c8d3c0; }
+.currency-symbol { font-weight: 700; color: var(--accent); font-size: 14px; }
+.currency-picker select { border: 0; background: transparent; padding: 8px 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.currency-picker + .user-menu { margin-left: 0; }
+@media (max-width: 760px) { .header-search ~ .currency-picker { margin-left: auto; } }
+@media (max-width: 1000px) { .main-nav button:nth-child(3) { display: none; } .site-header-inner { gap: 14px; } }

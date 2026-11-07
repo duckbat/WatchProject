@@ -152,7 +152,7 @@ export default function Home() {
 
   return (
     <div className="app">
-      <SiteHeader route={route} me={me} brands={brands} ownedCount={owned.length} observationCount={observations.length} onNavigate={navigate} onModal={openModal} onExport={exportData} />
+      <SiteHeader route={route} me={me} brands={brands} ownedCount={owned.length} observationCount={observations.length} onNavigate={navigate} onModal={openModal} onExport={exportData} prefs={prefs} onPrefs={setPrefs} />
       <main className="page">
         {error && (
           <div role="alert" className="notice error">
@@ -176,6 +176,7 @@ export default function Home() {
             onRemove={remove}
             onModels={addModels}
             signedIn={signedIn}
+            groupSources={sources.filter((s) => /facebook\.com\/groups\//i.test(s.url || ''))}
           />
         ) : route.view === "collection" ? (
           <CollectionView entries={entries} models={models} prefs={prefs} onPrefs={setPrefs} onNavigate={navigate} onModal={openModal} onRemove={remove} />

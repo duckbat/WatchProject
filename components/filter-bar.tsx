@@ -1,6 +1,5 @@
 'use client';
 import { Globe2, SlidersHorizontal, Tag } from 'lucide-react';
-import { currencies } from '../lib/market';
 import { regions, statuses, type Prefs } from './shared';
 
 type Props = {
@@ -15,7 +14,7 @@ type Props = {
 /** Compact filters that sit directly under the search field instead of a sidebar. */
 export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, extended }: Props) {
   const set = (k: keyof Prefs) => (e: React.ChangeEvent<HTMLSelectElement>) => onPrefs({ ...prefs, [k]: e.target.value });
-  const changed = (['region', 'currency', 'basis', 'method', 'condition', 'seller'] as const).some(
+  const changed = (['region', 'basis', 'method', 'condition', 'seller'] as const).some(
     (k) => prefs[k] !== ({ region: 'Global', currency: 'EUR', basis: 'asking', method: 'median', condition: 'all', seller: 'all' } as Prefs)[k],
   );
   return (
@@ -37,13 +36,6 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
         <select aria-label="Seller region" value={prefs.region} onChange={set('region')}>
           {regions.map(([v, l]) => (
             <option key={v} value={v}>{v === 'Global' ? 'All regions' : l}</option>
-          ))}
-        </select>
-      </label>
-      <label className={`filter-pill${prefs.currency !== 'EUR' ? ' on' : ''}`}>
-        <select aria-label="Currency" value={prefs.currency} onChange={set('currency')}>
-          {currencies.map((c) => (
-            <option key={c}>{c}</option>
           ))}
         </select>
       </label>
@@ -84,7 +76,7 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
           type="button"
           className="filter-reset"
           onClick={() => {
-            onPrefs({ ...prefs, region: 'Global', currency: 'EUR', basis: 'asking', method: 'median', condition: 'all', seller: 'all' });
+            onPrefs({ ...prefs, region: 'Global', basis: 'asking', method: 'median', condition: 'all', seller: 'all' });
             onBrand?.('');
           }}
         >

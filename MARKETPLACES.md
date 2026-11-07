@@ -5,11 +5,11 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
 | Source | Setup | What you get |
 | --- | --- | --- |
 | Tori.fi | None | Live asking prices (Finland), searched on every watch page. |
-| r/Watchexchange | None | Reddit's public RSS search. `[WTS]`/`[WTT]` posts from the last year whose **title** states a price, plotted on their post date. Reddit rate-limits this feed; results are cached for 20 minutes per watch. |
+| r/Watchexchange | None | Reddit's public RSS search. `[WTS]`/`[WTT]` posts from the last year whose **title** states a price, plotted on their post date. Reddit rate-limits this feed; results are cached for 20 minutes per watch, and the last good results are reused for up to 24 hours while Reddit is limiting. |
 | r/Watchexchange (API) | Optional `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | Also reads prices from the post body and searches the model line. Reddit now reviews new API apps, so this may need approval. |
 | eBay | Free keys, see below | Up to 50 active listings per watch from one eBay marketplace. |
 | Chrono24 | Save button | No public API, and automated requests get a bot check. Use **Save to WatchLedger** on listings you view. Prices show Chrono24's 6.95% commission. |
-| Facebook groups | Save button | Facebook removed its Groups API in 2024. Open the post, select its text, click **Save to WatchLedger**. |
+| Facebook groups | Save button | Facebook removed its Groups API in 2024. The built-in **Facebook watch group** (`groups/1424920254386825`) gets a *Search group* link on every watch page (Facebook's own in-group search, while you are signed in to Facebook). Open a post, select its text, click **Save to WatchLedger**; posts from that group are tagged with it automatically. Add more groups under Sources → Add source with the group URL. |
 | Any other site | Save button | Reads the page's structured price data or your selected text. |
 
 ## eBay (about 10 minutes, free)
@@ -30,3 +30,7 @@ The Browse API gives active listings only (about 5,000 calls/day on the free tie
 ## Save to WatchLedger button
 
 Open **Profile → Save from any website** (or the Sources page) and drag the green button to your bookmarks bar. On a listing page, click it: WatchLedger opens with the link, title and price filled in, suggests the matching reference, and saves the price to your history. The button runs only in your browser on the page you are viewing; listing data travels in the URL fragment, which is not sent to any server.
+
+## Currency
+
+Prices default to EUR. Change the currency with the picker at the top right; it is remembered in your browser. Currencies are never converted: a listing only appears when it was priced in the selected currency (r/Watchexchange posts are mostly USD).
