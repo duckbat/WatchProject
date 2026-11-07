@@ -49,3 +49,23 @@ export function feeBreakdown(price:number,sourceId='chrono24'){const fee=marketp
 /** Facebook group sources: their numeric ID, and a link to Facebook's own in-group search (works while signed in to Facebook). */
 export function facebookGroupId(url=''){return url.match(/facebook\.com\/groups\/([\w.]+)/i)?.[1]||null;}
 export function facebookGroupSearchUrl(url:string,query:string){const id=facebookGroupId(url);return id?`https://www.facebook.com/groups/${id}/search/?${new URLSearchParams({q:query})}`:null;}
+
+/** Official brand websites, used to find and recognise retail (MSRP) prices. */
+export const brandSites: Record<string, string> = {
+  'Rolex': 'rolex.com', 'Tudor': 'tudorwatch.com', 'Omega': 'omegawatches.com', 'Cartier': 'cartier.com', 'Seiko': 'seikowatches.com',
+  'Grand Seiko': 'grand-seiko.com', 'Longines': 'longines.com', 'TAG Heuer': 'tagheuer.com', 'IWC': 'iwc.com', 'Breitling': 'breitling.com',
+  'Patek Philippe': 'patek.com', 'Audemars Piguet': 'audemarspiguet.com', 'Tissot': 'tissotwatch.com', 'Hamilton': 'hamiltonwatch.com',
+  'Panerai': 'panerai.com', 'Jaeger-LeCoultre': 'jaeger-lecoultre.com', 'Zenith': 'zenith-watches.com', 'Oris': 'oris.ch', 'Sinn': 'sinn.de',
+  'NOMOS Glashütte': 'nomos-glashuette.com', 'Nomos': 'nomos-glashuette.com', 'Blancpain': 'blancpain.com', 'Breguet': 'breguet.com', 'Hublot': 'hublot.com',
+  'Vacheron Constantin': 'vacheron-constantin.com', 'Citizen': 'citizenwatch.com', 'Casio': 'casio.com',
+  'Bell & Ross': 'bellross.com', 'Chopard': 'chopard.com', 'Montblanc': 'montblanc.com', 'Frederique Constant': 'frederiqueconstant.com',
+  'Glashütte Original': 'glashuette-original.com', 'A. Lange & Söhne': 'alange-soehne.com', 'Ulysse Nardin': 'ulysse-nardin.com', 'Rado': 'rado.com',
+  'Mido': 'midowatches.com', 'Certina': 'certina.com', 'Baume & Mercier': 'baume-et-mercier.com', 'Bulova': 'bulova.com', 'Doxa': 'doxawatches.com',
+};
+export function brandSiteFor(brand: string) { return brandSites[brand] || null; }
+export function isBrandSite(host: string) { const h = host.toLowerCase().replace(/^www\./, ''); return Object.values(brandSites).some((d) => h === d || h.endsWith('.' + d)); }
+/** A web search restricted to the brand's site for this reference (brand sites have no stable public search URL). */
+export function retailLookupUrl(brand: string, reference: string) {
+  const site = brandSiteFor(brand);
+  return site ? `https://duckduckgo.com/?${new URLSearchParams({ q: `site:${site} ${reference}` })}` : `https://duckduckgo.com/?${new URLSearchParams({ q: `${brand} ${reference} retail price` })}`;
+}

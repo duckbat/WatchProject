@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Bookmark, Check, MousePointerClick, Search } from 'lucide-react';
-import { countries, currencies, facebookGroupId, feeBreakdown, money, type Model } from '../lib/market';
+import { countries, currencies, facebookGroupId, feeBreakdown, isBrandSite, money, type Model } from '../lib/market';
 import { extractPrice } from '../lib/collectors';
 import SearchBox from './search-box';
 import WatchPhoto from './watch-photo';
@@ -68,6 +68,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
   const [finding, setFinding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [kind, setKind] = useState<'observation' | 'retail'>('observation');
   const [form, setForm] = useState({ sourceId: 'web', price: '', currency: 'EUR', country: 'UNKNOWN', status: 'asking', condition: 'used', sellerType: 'private', contents: 'unknown', observedAt: today(), url: '', title: '' });
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
       const structured = Number(String(d.price ?? '').replace(/[^\d.]/g, ''));
       const guess = structured > 0 ? { price: structured, currency: String(d.currency || '').toUpperCase() } : extractPrice(text);
       const sourceId = guessSource(d.site, d.url, sources);
+      if (isBrandSite(d.site || '')) setKind('retail');
       setForm((f) => ({
         ...f,
         sourceId,
@@ -100,7 +102,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
   useEffect(() => {
     if (!clip) return;
     const words = `${clip.title} ${clip.text || ''}`.match(/[A-Za-z0-9][A-Za-z0-9.\-/]{3,}/g) || [];
-    const tokens = [...new Set(words.filter((w) => /\d/.test(w) && !/^(19|20)\d\d$/.test(w) && !/^\d{1,3}([.,]\d{3})+$/.test(w) && w.length <= 24))].slice(0, 6);
+    const tokens = [...new Set(words.filter((w) => /\d/.test(w) && !/^(19|20)\d\d$/.test(w) && !/^\d{1,3}([.,]\d{3})+$/.test(w) && w.length <= 24).map((w) => w.replace(/^m(?=\d{5})/i, '')))].slice(0, 6); // Rolex/Tudor write M126200-0001
     if (!tokens.length) return;
     setFinding(true);
     Promise.all(tokens.map((t) => fetch(`/api/catalog?${new URLSearchParams({ q: t, limit: '4' })}`).then((r) => r.json()).then((d: any) => ({ t, items: (d.items || []) as Model[] })).catch(() => ({ t, items: [] as Model[] }))))
@@ -126,7 +128,8 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
     setBusy(true);
     setError('');
     try {
-      await onSave('observation', { ...form, modelId: model.id, price: Number(form.price), title: form.title || undefined });
+      if (kind === 'retail') await onSave('retail', { modelId: model.id, price: Number(form.price), currency: form.currency, asOf: form.observedAt, url: form.url || undefined, source: (clip?.site || '').replace(/^www\./, '') || undefined });
+      else await onSave('observation', { ...form, modelId: model.id, price: Number(form.price), title: form.title || undefined });
       history.replaceState(null, '', location.pathname + location.search);
       onNavigate({ view: 'watch', id: model.id });
     } catch (err) {
@@ -197,7 +200,12 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
 
         <form className="panel clip-panel clip-form" onSubmit={submit}>
           <h2>Price details</h2>
-          <label>Source<select value={form.sourceId} onChange={set('sourceId')}>{sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <div className="kind-toggle" role="radiogroup" aria-label="Save as">
+            <button type="button" role="radio" aria-checked={kind === 'observation'} className={kind === 'observation' ? 'on' : ''} onClick={() => setKind('observation')}>Market price (listing or sale)</button>
+            <button type="button" role="radio" aria-checked={kind === 'retail'} className={kind === 'retail' ? 'on' : ''} onClick={() => setKind('retail')}>Retail price (brand / dealer)</button>
+          </div>
+          {kind === 'retail' && <p className="fee-live">Saved as the official retail price{clip.site ? ` from ${clip.site.replace(/^www\./, '')}` : ''}. It is used for value retention and shown in the price box.</p>}
+          {kind === 'observation' && <label>Source<select value={form.sourceId} onChange={set('sourceId')}>{sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
           <div className="form-grid">
             <label>Price{form.sourceId === 'chrono24' && <span className="optional">listed price, incl. fees</span>}<input type="number" min="0.01" step="0.01" required value={form.price} onChange={set('price')} placeholder="0.00" /></label>
             <label>Currency<select value={form.currency} onChange={set('currency')}>{currencies.map((c) => <option key={c}>{c}</option>)}</select></label>
@@ -207,6 +215,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
               Buyer pays <strong>{money(fee.listed, form.currency)}</strong> · Chrono24 keeps 6.95% ({money(fee.commission, form.currency)}) · seller receives <strong>{money(fee.sellerNet, form.currency)}</strong>
             </p>
           )}
+          {kind === 'observation' && (<>
           <div className="form-grid">
             <label>Price type<select value={form.status} onChange={set('status')}>{Object.entries(statuses).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
             <label>Date seen<input type="date" max={today()} value={form.observedAt} onChange={set('observedAt')} required /></label>
@@ -219,10 +228,12 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
             <label>Condition<select value={form.condition} onChange={set('condition')}><option value="used">Pre-owned</option><option value="new">New / unworn</option><option value="unknown">Unknown</option></select></label>
             <label>Box & papers<select value={form.contents} onChange={set('contents')}><option value="unknown">Unknown</option><option value="full-set">Box and papers</option><option value="watch-only">Watch only</option></select></label>
           </div>
-          <label>Listing link<input type="url" value={form.url} onChange={set('url')} maxLength={2000} /></label>
+          </>)}
+          {kind === 'retail' && <label>As of<input type="date" max={today()} value={form.observedAt} onChange={set('observedAt')} required /></label>}
+          <label>{kind === 'retail' ? 'Page link' : 'Listing link'}<input type="url" value={form.url} onChange={set('url')} maxLength={2000} /></label>
           {error && <p role="alert" className="error-text">{error}</p>}
           <div className="form-actions">
-            <button className="primary" disabled={busy || !model}>{busy ? 'Saving…' : model ? `Save price for ${model.brand} ${model.reference}` : 'Choose a watch first'}</button>
+            <button className="primary" disabled={busy || !model}>{busy ? 'Saving…' : model ? `Save ${kind === 'retail' ? 'retail price' : 'price'} for ${model.brand} ${model.reference}` : 'Choose a watch first'}</button>
           </div>
         </form>
       </div>

@@ -12,7 +12,7 @@ const url=z.string().max(2000).refine(v=>!v||/^https?:$/.test((()=>{try{return n
 const payload=z.discriminatedUnion("kind",[
  z.object({kind:z.literal("source"),data:z.object({name:short,url,country:z.string().refine(v=>!v||v in countries),mode:z.literal("Manual observations")})}),
  z.object({kind:z.literal("model"),data:z.object({brand:short,name:short,reference:short,color:z.literal("#344d47"),size:z.string().max(40),imageUrl:url.optional()})}),
- z.object({kind:z.literal("retail"),data:z.object({modelId:short,price:z.number().finite().positive().max(1e9),currency,asOf:date})}),
+ z.object({kind:z.literal("retail"),data:z.object({modelId:short,price:z.number().finite().positive().max(1e9),currency,asOf:date,url:url.optional(),source:z.string().max(160).optional()})}),
  z.object({kind:z.literal("owned"),data:z.object({modelId:short,cost:z.number().finite().min(0).max(1e9),currency,purchaseDate:date})}),
  z.object({kind:z.literal("observation"),data:z.object({modelId:short,sourceId:short,country:z.string().refine(v=>v in countries),currency,price:z.number().finite().positive().max(1e9),status:z.enum(["asking","confirmed-sale","sold-asking"]),observedAt:date,condition:z.enum(["used","new","unknown"]),sellerType:z.enum(["private","dealer","unknown"]),contents:z.enum(["full-set","watch-only","unknown"]),url,title:z.string().max(500).optional(),collectedAt:z.string().datetime().optional()})})
 ]);

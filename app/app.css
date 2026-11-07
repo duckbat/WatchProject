@@ -493,3 +493,10 @@
 .thread-list li { padding: 6px 0; border-top: 1px solid var(--line-2); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
 .thread-list a { color: var(--accent); display: inline-flex; align-items: center; gap: 3px; }
 .thread-list small { color: var(--muted); }
+.retail-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.retail-actions .secondary { font-size: 13px; padding: 8px 12px; }
+.price-row p a { color: var(--accent); display: inline-flex; align-items: center; gap: 2px; }
+.kind-toggle { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+.kind-toggle button { flex: 1; padding: 9px 10px; font-size: 13px; color: var(--ink-2); background: var(--surface); }
+.kind-toggle button + button { border-left: 1px solid var(--line); }
+.kind-toggle button.on { background: var(--accent); color: #fff; font-weight: 600; }

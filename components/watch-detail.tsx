@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Pencil, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
-import { countries, facebookGroupSearchUrl, feeBreakdown, inRegion, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
+import { brandSiteFor, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors';
 import PriceScatter, { type ChartPoint } from './price-scatter';
@@ -243,7 +243,11 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             <div className="price-row">
               <div>
                 <h3>Retail price <span className="info" title="Price from an authorized retailer. Enter it yourself; it is used for value retention." role="img" aria-label="About retail price"><Info size={13} /></span></h3>
-                <p>{retail ? `You entered it on ${fmtDate(retail.data.asOf)}` : 'Price from an authorized retailer'}</p>
+                <p>
+                  {retail ? (
+                    retail.data.url ? <>From <a href={retail.data.url} target="_blank" rel="noreferrer">{retail.data.source || 'brand site'} <ArrowUpRight size={11} /></a> · as of {fmtDate(retail.data.asOf)}</> : <>Entered by you · as of {fmtDate(retail.data.asOf)}</>
+                  ) : retails.length ? `Saved in ${retails.map((r) => r.data.currency).join(', ')}; none in ${prefs.currency}` : 'Official price from the brand or an authorized dealer'}
+                </p>
               </div>
               {retailEdit ? (
                 <form className="retail-form" onSubmit={(e) => { e.preventDefault(); saveRetail(); }}>
@@ -257,7 +261,12 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                   <button className="text-btn" onClick={() => { setRetailInput(String(retail.data.price)); setRetailEdit(true); }}><Pencil size={12} />Edit</button>
                 </div>
               ) : (
-                <button className="secondary" onClick={() => setRetailEdit(true)}><Plus size={14} />Add retail price</button>
+                <div className="retail-actions">
+                  <a className="secondary" href={retailLookupUrl(model.brand, baseReference(model.reference))} target="_blank" rel="noreferrer" title="Open the model on the brand's site, then click Save to WatchLedger">
+                    Find on {brandSiteFor(model.brand) || 'the web'} <ArrowUpRight size={13} />
+                  </a>
+                  <button className="text-btn" onClick={() => setRetailEdit(true)}><Plus size={13} />Enter</button>
+                </div>
               )}
             </div>
             <div className="price-row market">

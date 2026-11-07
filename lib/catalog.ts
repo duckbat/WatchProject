@@ -32,7 +32,7 @@ const refIndex=new Map<string,CatalogModel[]>();
 for(const m of allModels){for(const k of new Set([squash(m.reference),squash(m.reference.replace(/-\d{3,4}$/,''))])){if(k.length<4)continue;const xs=refIndex.get(k)||[];if(xs.length<12)xs.push(m);refIndex.set(k,xs);}}
 export function matchReferences(text:string){
  const lower=text.toLocaleLowerCase();const tokens=new Set<string>();
- for(const t of lower.match(/[a-z0-9][a-z0-9.\-/]{3,}/g)||[]){if(!/\d/.test(t))continue;const k=squash(t.replace(/^ref\.?/,''));tokens.add(squash(t));tokens.add(k);const market=k.match(/^(.{5,}?)(j1|k1|p1|j|k)$/);if(market)tokens.add(market[1]);}
+ for(const t of lower.match(/[a-z0-9][a-z0-9.\-/]{3,}/g)||[]){if(!/\d/.test(t))continue;const k=squash(t.replace(/^ref\.?/,'').replace(/^m(?=\d{5})/,''));tokens.add(squash(t));tokens.add(k);const market=k.match(/^(.{5,}?)(j1|k1|p1|j|k)$/);if(market)tokens.add(market[1]);}
  const found:CatalogModel[]=[];
  for(const t of tokens){for(const m of refIndex.get(t)||[])if(!found.includes(m))found.push(m);}
  return found.sort((a,b)=>Number(lower.includes(b.brand.toLocaleLowerCase()))-Number(lower.includes(a.brand.toLocaleLowerCase()))).slice(0,6);

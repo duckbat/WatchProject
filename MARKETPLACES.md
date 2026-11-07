@@ -35,3 +35,13 @@ Open **Profile → Save from any website** (or the Sources page) and drag the gr
 ## Currency
 
 Prices default to EUR. Change the currency with the picker at the top right; it is remembered in your browser. Currencies are never converted: a listing only appears when it was priced in the selected currency (r/Watchexchange posts are mostly USD).
+
+## Retail prices
+
+Brand sites (rolex.com, tudorwatch.com, omegawatches.com and others) block automated requests (HTTP 403 from bot protection), so WatchLedger cannot fetch retail prices on its own. Instead:
+
+1. On a watch page, the price box has **Find on rolex.com** (or the brand's site): a search limited to the brand's official site for that reference.
+2. Open the model page in your browser and click **Save to WatchLedger**. On a brand's official site the button switches to **Retail price** automatically, reads the price from the page (select it first if it is not detected) and saves it with the page link and date.
+3. The price box then shows the retail price with its source, and value retention / the risk score use it.
+
+You can also type a retail price with **Enter**. Retail prices are kept per currency; Rolex and Tudor "M126200-0001" model numbers are recognised.
