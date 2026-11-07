@@ -4,7 +4,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { money } from '../lib/market';
 
 export type ChartKind = 'live' | 'similar' | 'asking' | 'confirmed-sale' | 'sold-asking';
-export type ChartPoint = { id: string; date: string; price: number; kind: ChartKind; title: string; url?: string; source: string; country: string };
+export type ChartPoint = { id: string; date: string; price: number; kind: ChartKind; title: string; url?: string; source: string; country: string; undated?: boolean };
 
 export const kindStyle: Record<ChartKind, { label: string; color: string; hollow?: boolean }> = {
   live: { label: 'Listings (exact ref.)', color: 'var(--c-live)' },
@@ -36,11 +36,13 @@ export default function PriceScatter({ points, currency, period, marketPrice }: 
   const [hidden, setHidden] = useState<Set<ChartKind>>(new Set());
   const [hover, setHover] = useState<ChartPoint | null>(null);
   const kinds = (Object.keys(kindStyle) as ChartKind[]).filter((k) => points.some((p) => p.kind === k));
-  const shown = points.filter((p) => !hidden.has(p.kind));
+  const rangeStart = period === '36500' ? '' : new Date(Date.now() - Number(period) * DAY).toISOString().slice(0, 10);
+  const shown = points.filter((p) => !hidden.has(p.kind) && (p.undated || p.date >= rangeStart));
 
   // Live listings have no history yet, so they get their own "For sale now" column beside the timeline.
   const todayStr = new Date().toISOString().slice(0, 10);
-  const inBand = (p: ChartPoint) => (p.kind === 'live' || p.kind === 'similar') && p.date === todayStr;
+  // Only listings without a known listing date go in the "For sale now" column.
+  const inBand = (p: ChartPoint) => (p.kind === 'live' || p.kind === 'similar') && (p.undated || p.date > todayStr);
   const hasLive = points.some(inBand);
   const BAND = hasLive ? 150 : 0;
   const plotEnd = W - R - (BAND ? BAND + 14 : 0);
@@ -145,7 +147,7 @@ export default function PriceScatter({ points, currency, period, marketPrice }: 
             <span className="tip-kind" style={{ color: kindStyle[hovered.p.kind].color }}>{kindStyle[hovered.p.kind].label}</span>
             <strong>{money(hovered.p.price, currency)}</strong>
             <p>{hovered.p.title}</p>
-            <small>{hovered.p.source} · {hovered.p.country} · {hovered.p.date}</small>
+            <small>{hovered.p.source} · {hovered.p.country} · {hovered.p.undated ? 'date unknown' : `listed ${hovered.p.date}`}</small>
             {hovered.p.url && (
               <a href={hovered.p.url} target="_blank" rel="noreferrer">
                 Go to listing <ArrowUpRight size={13} />

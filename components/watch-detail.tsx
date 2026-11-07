@@ -5,6 +5,7 @@ import { countries, facebookGroupSearchUrl, feeBreakdown, inRegion, latestListin
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors';
 import PriceScatter, { type ChartPoint } from './price-scatter';
+import PriceHistory from './price-history';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
 import { matchesPrefs, periodStart, periods, regions, statuses, today, type LiveListing, type LiveResult, type ModalKind, type Prefs, type Route } from './shared';
@@ -117,13 +118,18 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const topOther = otherCurrencies.sort((a, b) => otherCurrencies.filter((x) => x === b).length - otherCurrencies.filter((x) => x === a).length)[0];
   const sellPrice = Number(sellInput) > 0 ? Number(sellInput) : marketPrice;
   const fees = sellPrice ? feeBreakdown(sellPrice, 'chrono24') : null;
-  const sortedExact = [...exactIn].sort((a, b) => b.observedAt.localeCompare(a.observedAt));
+  const sortedExact = [...exactIn].sort((a, b) => (b.listedAt || b.observedAt).localeCompare(a.listedAt || a.observedAt));
+  const liveUrls = new Set(exactIn.map((l) => l.url));
+  const historyPrices = [
+    ...savedShown.filter((e) => !liveUrls.has(e.data.url)).map((e) => ({ date: e.data.observedAt, price: e.data.price })),
+    ...exactIn.map((l) => ({ date: l.listedAt || l.observedAt, price: l.price })),
+  ].filter((p) => prefs.period === '36500' || p.date >= periodStart(prefs.period));
   const savedToday = new Set(saved.filter((e) => e.data.observedAt === today()).map((e) => e.data.url));
   const owned = entries.filter((e) => e.kind === 'owned' && e.data.modelId === modelId);
 
   const points: ChartPoint[] = [
     ...savedShown.filter((e) => !(e.data.observedAt === today() && exactIn.some((l) => l.url === e.data.url))).map((e) => ({ id: e.id, date: e.data.observedAt, price: e.data.price, kind: e.data.status as ChartPoint['kind'], title: (e.data as any).title || `${model.brand} ${model.reference}`, url: e.data.url || undefined, source: sourceName(e.data.sourceId), country: countries[e.data.country] || e.data.country })),
-    ...[...exactIn.map((l) => ({ l, kind: l.status === 'sold-asking' ? ('sold-asking' as const) : ('live' as const) })), ...similarIn.map((l) => ({ l, kind: 'similar' as const }))].map(({ l, kind }) => ({ id: `live-${l.url}`, date: l.observedAt, price: l.price, kind, title: l.title, url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
+    ...[...exactIn.map((l) => ({ l, kind: l.status === 'sold-asking' ? ('sold-asking' as const) : ('live' as const) })), ...similarIn.map((l) => ({ l, kind: 'similar' as const }))].map(({ l, kind }) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt, price: l.price, kind, title: l.title, url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
   ];
 
   const regional = regions.filter(([r]) => r !== 'Global').map(([r, name]) => {
@@ -154,7 +160,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <span className="listing-source">{sourceName(l.sourceId)} · {countries[l.country] || l.country}{l.condition !== 'unknown' ? ` · ${l.condition === 'new' ? 'New' : 'Pre-owned'}` : ''}</span>
           <a className="listing-title" href={l.url} target="_blank" rel="noreferrer">{l.title}</a>
           <strong className="listing-price">{money(l.price, l.currency)}{l.status === 'sold-asking' && <span className="tag sold-tag">Sold</span>}</strong>
-          {l.sourceId !== 'tori' && l.observedAt !== today() && <span className="listing-source">Posted {l.observedAt}</span>}
+          {l.listedAt && <span className="listing-source">{l.sourceId === 'tori' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
           <div className="listing-actions">
             <a className="secondary" href={l.url} target="_blank" rel="noreferrer">
               View listing <ArrowUpRight size={13} />
@@ -331,6 +337,23 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="panel chart-card">
+        <div className="chart-card-head">
+          <div>
+            <h2>Price history</h2>
+            <p>{model.brand} {baseReference(model.reference)} · exact-reference prices in {prefs.currency}{prefs.region !== 'Global' ? ` · ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''}</p>
+          </div>
+          <div className="period-tabs" role="tablist" aria-label="Time range">
+            {periods.map(([v, l]) => (
+              <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <PriceHistory prices={historyPrices} currency={prefs.currency} period={prefs.period} method={prefs.method} />
       </section>
 
       <section className="panel chart-card">

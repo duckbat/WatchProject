@@ -14,6 +14,8 @@ const cache = new Map<string, { at: number; body: unknown }>();
 const userHits = new Map<string, number[]>();
 // Last good Reddit results per watch, reused while Reddit rate-limits the public feed.
 const redditLast = new Map<string, { at: number; listings: unknown[] }>();
+const REDDIT_REUSE = 6 * 3600_000;
+let lastRedditCall = 0;
 
 export async function GET(req: Request) {
   const user = await getChatGPTUser();
@@ -38,7 +40,11 @@ export async function GET(req: Request) {
   if (recent.length >= 12) return Response.json({ error: 'Too many live lookups. Try again in a minute.' }, { status: 429, headers: { 'Retry-After': '60' } });
   userHits.set(user.userId, [...recent, now]);
 
-  const { listings, sources } = await fetchLiveListings(model, env as any);
+  // Reddit's public feed allows about one request a minute: reuse results for 6 hours and space calls 10 s apart.
+  const recentReddit = redditLast.get(modelId);
+  const skipReddit = recentReddit && refresh === '0' && Date.now() - recentReddit.at < REDDIT_REUSE ? 'reuse' : Date.now() - lastRedditCall < 10_000 ? 'Reddit checks are spaced out to respect its rate limit. Refresh in a few seconds.' : undefined;
+  if (!skipReddit) lastRedditCall = Date.now();
+  const { listings, sources } = await fetchLiveListings(model, env as any, undefined, { skipReddit });
   const reddit = sources.find((x) => x.id === 'reddit');
   if (reddit?.status === 'ok') redditLast.set(modelId, { at: Date.now(), listings: listings.filter((l) => l.sourceId === 'reddit') });
   else if (reddit?.status === 'error') {
@@ -47,7 +53,8 @@ export async function GET(req: Request) {
       listings.push(...(last.listings as typeof listings));
       reddit.status = 'ok';
       reddit.count = last.listings.length;
-      reddit.message = `Reddit is rate-limiting; showing results from ${Math.round((Date.now() - last.at) / 60_000)} min ago.`;
+      const mins = Math.round((Date.now() - last.at) / 60_000);
+      reddit.message = skipReddit === 'reuse' ? `Checked ${mins} min ago. Refresh to check Reddit again.` : `Reddit is rate-limiting; showing results from ${mins} min ago.`;
     }
   }
   const partial = sources.some((x) => x.status === 'error');

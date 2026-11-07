@@ -45,3 +45,11 @@ const rss=parseRedditRss(await readFile('tests/fixtures/reddit-126200.rss','utf8
 assert(rss.length>=3);assert(rss.every(r=>r.sourceId==='reddit'&&r.url.startsWith('https://www.reddit.com/r/Watchexchange/comments/')&&r.price>1000));
 assert(rss.some(r=>r.price===8999&&r.currency==='USD'));assert.throws(()=>parseRedditRss('<html>blocked</html>',dj),/feed/);
 console.log(`Reddit RSS checks passed: ${rss.length} priced posts from fixture.`);
+const {parseToriItemDate}=await import('../.sites-runtime/test-modules/collectors.mjs');
+assert.equal(parseToriItemDate('x\\"edited\\":\\"2026-11-07T11:33:56.882191+01:00\\",y'),'2026-11-07');
+assert.equal(parseToriItemDate('<p>Viimeksi muokattu<!-- -->: <!-- -->7.9.2026 klo 12.33</p>'),'2026-09-07');
+assert.equal(parseToriItemDate('<html></html>'),undefined);
+assert.equal(rss[0].listedAt,rss[0].observedAt);
+console.log('Listing date checks passed.');
+assert.deepEqual(parseTori('<script id="seoStructuredData" type="application/ld+json"></script>',model),[]);
+console.log('Empty Tori search check passed.');

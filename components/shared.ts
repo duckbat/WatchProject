@@ -6,7 +6,7 @@ export type Prefs = { region: string; currency: string; basis: string; method: s
 export type ModalKind = '' | 'owned' | 'observation' | 'source' | 'model' | 'about';
 export type BrandFacet = { brand: string; count: number };
 export type Me = { user: { name: string | null; email: string; displayName: string } | null; signOutPath?: string; signInPath?: string };
-export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'similar'; image?: string };
+export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'similar'; image?: string; listedAt?: string };
 export type SourceStatus = { id: string; name: string; status: 'ok' | 'error' | 'credentials_required' | 'blocked'; count: number; message?: string; searchUrl?: string };
 export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; sources: SourceStatus[] };
 

@@ -376,3 +376,18 @@
 .currency-picker + .user-menu { margin-left: 0; }
 @media (max-width: 760px) { .header-search ~ .currency-picker { margin-left: auto; } }
 @media (max-width: 1000px) { .main-nav button:nth-child(3) { display: none; } .site-header-inner { gap: 14px; } }
+/* Price history line chart */
+.history { margin-top: 12px; }
+.history-summary { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.history-summary strong { font-size: 28px; letter-spacing: -.6px; }
+.history-summary small { color: var(--muted); font-size: 12px; }
+.history-change { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 14px; padding: 2px 8px; border-radius: 999px; }
+.history-change.up { color: #2f7d57; background: #2f7d571a; }
+.history-change.down { color: #b0472f; background: #b0472f1a; }
+.history-plot { position: relative; }
+.history-plot > svg { width: 100%; height: auto; display: block; overflow: visible; cursor: crosshair; }
+.history-plot .axis { fill: var(--muted); font-size: 12px; }
+.history-tip { pointer-events: none; width: 210px; }
+.history-tip .tip-kind { color: var(--ink-2); text-transform: none; letter-spacing: 0; font-weight: 600; }
+.history-empty { padding: 36px 0 24px; text-align: center; color: var(--muted); }
+.history-empty p { margin: 0 0 4px; color: var(--ink-2); font-size: 14px; }
