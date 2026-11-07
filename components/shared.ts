@@ -8,7 +8,7 @@ export type BrandFacet = { brand: string; count: number };
 export type Me = { user: { name: string | null; email: string; displayName: string } | null; signOutPath?: string; signInPath?: string };
 export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'similar'; image?: string; listedAt?: string };
 export type SourceStatus = { id: string; name: string; status: 'ok' | 'error' | 'credentials_required' | 'blocked'; count: number; message?: string; searchUrl?: string };
-export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; sources: SourceStatus[] };
+export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; sources: SourceStatus[]; threads?: { title: string; url: string; date: string; source: string }[] };
 
 export const defaultPrefs: Prefs = { region: 'Global', currency: 'EUR', basis: 'asking', method: 'median', period: '365', condition: 'all', seller: 'all' };
 export const statuses: Record<string, string> = { asking: 'Asking price', 'confirmed-sale': 'Confirmed sale', 'sold-asking': 'Sold · last ask' };

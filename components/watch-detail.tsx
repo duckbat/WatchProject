@@ -424,6 +424,20 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         ) : (
           <p className="muted-line">No exact-reference listings are live in {prefs.currency}{prefs.region !== 'Global' ? ` for ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''} right now.</p>
         )}
+        {(live?.threads?.length ?? 0) > 0 && (
+          <div className="similar-block">
+            <p className="thread-head">Also for sale, price not in the forum preview</p>
+            <ul className="thread-list">
+              {live!.threads!.map((t) => (
+                <li key={t.url}>
+                  <a href={t.url} target="_blank" rel="noreferrer">{t.title} <ArrowUpRight size={12} /></a>
+                  <small>{t.source} · {fmtDate(t.date)}</small>
+                </li>
+              ))}
+            </ul>
+            <p className="fine">Open the thread and use the Save to WatchLedger button (select the price text first) to add its price.</p>
+          </div>
+        )}
         {similarIn.length > 0 && (
           <div className="similar-block">
             <button className="text-btn" aria-expanded={showSimilar} onClick={() => setShowSimilar((v) => !v)}>

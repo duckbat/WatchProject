@@ -85,6 +85,36 @@ export function parseRedditRss(xml:string,model:Model&{family?:string}):LiveList
  }
  return parseRedditListings({data:{children}},model);
 }
+/** One thread from a forum's public RSS feed (XenForo: WatchUSeek). */
+export type ForumItem={id:string;title:string;url:string;date:string;text:string};
+export function parseForumRss(xml:string,host='www.watchuseek.com'):ForumItem[]{
+ if(!/<rss[\s>]/.test(xml))throw new CollectorError('layout_changed','The forum did not return an RSS feed.');
+ const out:ForumItem[]=[];
+ for(const item of (xml.match(/<item>[\s\S]*?<\/item>/g)||[]).slice(0,100)){
+  const title=item.match(/<title>([\s\S]*?)<\/title>/)?.[1];const link=item.match(/<link>([^<]+)<\/link>/)?.[1]?.trim();const pub=item.match(/<pubDate>([^<]+)<\/pubDate>/)?.[1];
+  if(!title||!link||!pub)continue;let u:URL;try{u=new URL(decodeEntities(link));}catch{continue;}
+  if(u.protocol!=='https:'||u.hostname!==host||!/^\/threads\/[^/]*\.(\d+)\/?$/.test(u.pathname))continue;
+  const when=new Date(pub);if(!Number.isFinite(+when))continue;
+  const raw=item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1]||item.match(/<description>([\s\S]*?)<\/description>/)?.[1]||'';
+  const text=decodeEntities(raw.replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,' ')).replace(/[ \t]+/g,' ').trim().slice(0,2000);
+  out.push({id:u.pathname.match(/\.(\d+)\/?$/)![1],title:decodeEntities(title).trim().slice(0,300),url:u.origin+u.pathname,date:when.toISOString().slice(0,10),text});
+ }return out;
+}
+/** Forum threads that name this watch, with the first price in the title or post. */
+export function matchForumItems(items:ForumItem[],model:Model&{family?:string},sourceId:string):LiveListing[]{
+ const result:LiveListing[]=[];
+ for(const it of items){
+  const match=exactMatch(it.title,model)||exactMatch(`${it.title} ${it.text}`,model)?'exact':similarMatch(it.title,model)?'similar':null;if(!match)continue;
+  const priced=extractPrice(it.title)||extractPrice(it.text);if(!priced)continue;
+  const sold=/\bsold\b/i.test(it.title);
+  const c=collectedPrice.safeParse({modelId:model.id,sourceId,country:/\b(conus|usa|u\.s\.)\b/i.test(`${it.title} ${it.text}`)?'US':'UNKNOWN',currency:priced.currency,price:priced.price,status:sold?'sold-asking':'asking',observedAt:it.date,condition:/\b(new|unworn|bnib)\b/i.test(it.title)?'new':'unknown',sellerType:/\b(dealer|sponsor)\b/i.test(it.text)?'dealer':'private',contents:'unknown',url:it.url,title:it.title,collectedAt:new Date().toISOString()});
+  if(c.success&&!result.some(r=>r.url===c.data.url))result.push({...c.data,match,listedAt:it.date});
+ }return result;
+}
+/** Threads naming this exact reference whose feed excerpt has no price (shown as links only). */
+export function forumItemsNeedingPost(items:ForumItem[],model:Model):ForumItem[]{
+ return items.filter(it=>(exactMatch(it.title,model)||exactMatch(`${it.title} ${it.text}`,model))&&!extractPrice(it.title)&&!extractPrice(it.text));
+}
 export async function safeFetch(url:string,init:RequestInit={},fetcher:typeof fetch=fetch){
  // Only fixed provider URLs reach this helper. User marketplace URLs are never fetched.
  const response=await fetcher(url,{...init,redirect:'manual',signal:AbortSignal.timeout(15000)});
@@ -125,6 +155,7 @@ async function addToriDates(items:LiveListing[]){
  await Promise.all([worker(),worker(),worker(),worker()]);
 }
 export type SourceStatus={id:string;name:string;status:'ok'|'error'|'credentials_required'|'blocked';count:number;message?:string;searchUrl?:string};
+export const WATCHUSEEK_FEED='https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/index.rss';
 const toriHeaders={'User-Agent':'WatchProject/1.0 (personal watch price tracker)','Accept':'text/html'};
 async function toriSearch(q:string,model:Model&{family?:string}){const url=new URL('https://www.tori.fi/recommerce/forsale/search');url.searchParams.set('q',q);return parseToriListings(await safeFetch(url.href,{headers:toriHeaders}),model);}
 /** Live, unsaved asking prices for the detail page: exact-reference matches plus clearly labelled similar listings. */

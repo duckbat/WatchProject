@@ -13,6 +13,7 @@ export const defaultSources = [
  {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Manual observations"},
  {id:"facebook",name:"Facebook groups",url:"https://www.facebook.com/groups/",country:"",mode:"Manual observations"},
  {id:"fb-1424920254386825",name:"Facebook watch group",url:"https://www.facebook.com/groups/1424920254386825/",country:"",mode:"Manual observations"},
+ {id:"watchuseek",name:"WatchUSeek",url:"https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/",country:"",mode:"Manual observations"},
  {id:"web",name:"Other website",url:"",country:"",mode:"Manual observations"},
 ];
 export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string};

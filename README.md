@@ -35,6 +35,7 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 | eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
 | Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; save listings with the **Save to WatchLedger** button or record them manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
 | Reddit r/Watchexchange | Live search of [WTS] posts through Reddit's public RSS feed (no keys); posts whose title states a price are plotted on their post date. Optional API keys add post-body prices. |
+| WatchUSeek | Sale-forum RSS feed archived as it is read; threads naming a reference with a price in the title or preview are used. |
 | Facebook groups | No API exists; use the **Save to WatchLedger** browser button on a post. |
 | Any website | **Save to WatchLedger** browser button: reads the listing you are viewing (structured price data or selected text) and adds it to your history. |
 | Custom marketplaces | Save a source name and link, then record observations manually. Adding a link does not create a scraper. |
