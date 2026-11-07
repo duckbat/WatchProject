@@ -43,7 +43,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [showSimilar, setShowSimilar] = useState(false);
   const [related, setRelated] = useState<Model[]>([]);
   const [sellInput, setSellInput] = useState('');
-  const [mainPhoto, setMainPhoto] = useState<string | null>(null);
   const [chartTab, setChartTab] = useState<'listings' | 'volume' | 'days'>('listings');
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set());
   const [retailEdit, setRetailEdit] = useState(false);
@@ -79,7 +78,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   useEffect(() => {
     setLive(null);
     setShowSimilar(false);
-    setMainPhoto(null);
     if (signedIn) loadLive();
     else {
       setLiveState('error');
@@ -161,7 +159,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
   const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length }));
   const chartPoints = points.filter((p) => !hiddenSources.has(p.source));
-  const photos = [...new Set(exact.concat(similar).map((l) => l.image).filter(Boolean) as string[])].slice(0, 6);
   const fmtDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   async function saveRetail() {
     const price = Number(retailInput);
@@ -220,21 +217,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       <section className="detail-hero">
         <div className="detail-gallery">
           <div className="detail-photo">
-            {mainPhoto ? <img className="listing-hero-photo" src={mainPhoto} alt={`${model.brand} ${model.reference} from a listing`} referrerPolicy="no-referrer" /> : <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />}
+            <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />
             {owned.length > 0 && <span className="owned-tag">In my watches</span>}
           </div>
-          {photos.length > 0 && (
-            <div className="photo-strip" aria-label="Photos from listings">
-              <button className={!mainPhoto ? 'active' : ''} onClick={() => setMainPhoto(null)} aria-label="Catalog photo">
-                <WatchPhoto model={model} credit={false} iconSize={18} />
-              </button>
-              {photos.map((src) => (
-                <button key={src} className={mainPhoto === src ? 'active' : ''} onClick={() => setMainPhoto(src)} aria-label="Photo from a listing">
-                  <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="detail-info">
