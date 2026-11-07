@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { summarize, inRegion, history } from '../lib/market.ts';
+assert.equal(summarize([300,100,200]),200);
+assert.equal(summarize([100,300]),200);
+assert.equal(summarize([100,200,600],'average'),300);
+assert.equal(summarize([]),null);
+assert.equal(inRegion('FI','EU'),true);
+assert.equal(inRegion('GB','EU'),false);
+assert.equal(inRegion('US','EU'),false);
+assert.equal(inRegion('UNKNOWN','EU'),false);
+assert.equal(inRegion('UNKNOWN','Global'),true);
+assert.deepEqual(history([{observedAt:'2026-11-01',price:100},{observedAt:'2026-11-01',price:300},{observedAt:'2026-11-03',price:500}],'median'),[{date:'2026-11-01',value:200},{date:'2026-11-03',value:500}]);
+console.log('Price aggregation and regional filter checks passed');
