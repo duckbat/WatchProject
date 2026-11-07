@@ -5,3 +5,5 @@ License: CC0 1.0, supplied alongside this snapshot.
 Imported 2026-11-07: 40,753 unique brand/reference combinations from 48,603 CSV rows; 0 rows without a brand/reference excluded. Upstream coverage is incomplete and specifications are not independently verified. This is catalog metadata, not live pricing.
 
 Image URLs point to external sources; image rights are distinct from catalog metadata. Missing/broken images show a watch icon.
+
+Photo URLs repaired from the upstream JSON `image_url_source` field: 39,883 exact-reference originals. 870 records have no original photo URL. The old mirror paths are no longer used.

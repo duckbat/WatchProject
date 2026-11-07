@@ -7,4 +7,6 @@ assert.equal(new Set(rows.map(m=>`${m.brand.toLowerCase()}|${m.reference.toLower
 assert(rows.every(m=>m.brand&&m.name&&m.reference&&m.sourceUrl.startsWith('https://timepiecepedia.com/')));
 assert(rows.some(m=>m.brand==='Rolex'));assert(rows.some(m=>m.brand==='Omega'));assert(rows.some(m=>m.brand==='Seiko'));
 assert(rows.every(m=>!('price' in m)));assert(rows.every(m=>!m.imageUrl||m.imageUrl.startsWith('https://')));
+assert.equal(rows.filter(m=>m.imageUrl.startsWith('https://cdn.watchbase.com/')).length,39883);
+assert(rows.every(m=>!m.imageUrl.includes('timepiecepedia.com/watches/')));
 console.log(`Catalog checks passed: ${rows.length.toLocaleString()} unique references; ${new Set(rows.map(m=>m.brand)).size} brands; stable IDs, source links and no fabricated prices.`);

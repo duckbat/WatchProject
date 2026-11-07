@@ -4,10 +4,10 @@ import { and, eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
 import { records } from "../../../db/schema";
-import { defaultSources, countries } from "../../../lib/market";
+import { defaultSources, countries, currencies } from "../../../lib/market";
 const short = z.string().trim().min(1).max(160);
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>{const d=new Date(v+"T00:00:00Z");return Number.isFinite(+d)&&d.toISOString().slice(0,10)===v&&v<=new Date().toISOString().slice(0,10)},"Use a valid date, today or earlier");
-const currency=z.enum(["EUR","USD","GBP","CHF"]);
+const currency=z.enum(currencies);
 const url=z.string().max(2000).refine(v=>!v||/^https?:$/.test((()=>{try{return new URL(v).protocol}catch{return ""}})()),"Use an HTTP or HTTPS link");
 const payload=z.discriminatedUnion("kind",[
  z.object({kind:z.literal("source"),data:z.object({name:short,url,country:z.string().refine(v=>!v||v in countries),mode:z.literal("Manual observations")})}),

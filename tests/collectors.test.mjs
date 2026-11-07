@@ -12,7 +12,7 @@ const html=(products)=>`<script id="seoStructuredData" type="application/ld+json
 const now=new Date('2026-11-07T12:00:00Z');
 const xs=parseTori(html([product,product,{...product,name:'Seiko SPB259J1'}]),model,now);assert.equal(xs.length,1);assert.equal(xs[0].price,750);assert.equal(xs[0].sellerType,'unknown');assert.equal(xs[0].country,'FI');assert.equal(xs[0].status,'asking');assert.equal(xs[0].observedAt,'2026-11-07');
 assert.equal(parseTori(html([{...product,url:'http://127.0.0.1/'}]),model).length,0);
-assert.equal(parseTori(html([{...product,offers:{...product.offers,priceCurrency:'JPY'}}]),model).length,0);
+assert.equal(parseTori(html([{...product,offers:{...product.offers,priceCurrency:'INVALID'}}]),model).length,0);
 assert.throws(()=>parseTori('<html>Challenge</html>',model),/structured/);
 assert.equal(parseTori(html([]),model).length,0);
 const ebay=parseEbay({itemSummaries:[{title:'Seiko SPB143',price:{value:'800',currency:'USD'},itemLocation:{country:'US'},itemWebUrl:'https://www.ebay.com/itm/123?tracking=1',conditionId:'3000'}]},model,now);assert.equal(ebay.length,1);assert.equal(ebay[0].country,'US');assert.equal(ebay[0].url,'https://www.ebay.com/itm/123');
@@ -22,3 +22,5 @@ await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Respons
 await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Response('x'.repeat(3_000_001))),/limit/);
 await assert.rejects(()=>safeFetch('https://www.tori.fi',{},async()=>new Response('',{status:302,headers:{Location:'http://127.0.0.1'}})),/HTTP 302/);
 console.log('Collector checks passed: exact matching, duplicates, malformed data, currencies, origin validation, price types, source errors and response limits.');
+
+const japan=parseEbay({itemSummaries:[{title:'Seiko SPB143',price:{value:'90000',currency:'JPY'},itemLocation:{country:'JP'},itemWebUrl:'https://www.ebay.com/itm/321',conditionId:'3000'}]},model,now);assert.equal(japan[0].country,'JP');assert.equal(japan[0].currency,'JPY');assert.equal(japan[0].price,90000);

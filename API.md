@@ -29,7 +29,7 @@ Unknown condition, seller type, box/papers and location stay unknown. Asking pri
 
 `GET /api/market?modelId=seiko-spb143&region=EU&currency=EUR&basis=asking&statistic=median&days=30`
 
-Optional `sourceId`. Regions: Global, EU, US, FI, GB, CH. Currencies: EUR, USD, GBP, CHF. Price types: asking, confirmed-sale, sold-asking. Statistics: median, average. Days: 1–36500.
+Optional `sourceId`. Regions: Global, EU, US, Asia, FI, GB, CH. Currencies: EUR, USD, GBP, CHF, JPY, CNY, HKD, SGD, KRW, TWD, INR, AED, THB, MYR, IDR, VND, PHP. Price types: asking, confirmed-sale, sold-asking. Statistics: median, average. Days: 1–36500.
 
 Returns price, unique-listing sample size, observation count, dated history and latest observations. Current API comparison uses the latest observation per URL within the period to reduce repeated-listing bias. The dashboard applies the same latest-listing rule; the dated chart groups observations by day. Neither is an appraisal, and neither reconstructs historical prices before collection began.
 
@@ -48,3 +48,9 @@ Source references: [eBay Browse API](https://developer.ebay.com/api-docs/buy/api
 The bundled Timepiecepedia CC0 snapshot has 40,753 unique brand/reference combinations across 224 brands, deduplicated from 48,603 CSV rows. Four additional legacy references preserve existing application IDs (40,757 catalog entries total). This is broad coverage, not every watch ever produced. Source details and license: `data/catalog/`. It does not supply market prices or price history. External photos fall back to an empty watch icon on errors.
 
 Reimport from downloaded source files: `python3 scripts/import-catalog.py /path/to/references.csv --license-path /path/to/LICENSE`. Review changed IDs before publishing a new snapshot.
+
+## Photo recovery and Asia coverage
+
+Original exact-reference photo URLs are restored from `image_url_source` in the upstream JSON archive (39,883 records). The CSV mirror paths are not reliable. Refresh with `python3 scripts/import-catalog.py /path/to/references.csv --license-path /path/to/LICENSE --image-archive /path/to/upstream.tar.gz`. The repair step reads JSON in memory without extracting or executing repository files. Records without original URLs keep an empty photo value and render the watch icon. Third-party image availability and rights remain separate from the CC0 metadata license.
+
+Asia is matched by the seller's country/market code, covering East, South, Southeast, Central and Western Asia including Hong Kong, Macao and Taiwan. Cyprus also appears in the EU group. Currency is independent of region; no conversion is applied. Adding Asia does not enable a new marketplace integration.

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { summarize, inRegion, history } from '../lib/market.ts';
+import { summarize, inRegion, history, countries, currencies } from '../lib/market.ts';
 assert.equal(summarize([300,100,200]),200);
 assert.equal(summarize([100,300]),200);
 assert.equal(summarize([100,200,600],'average'),300);
@@ -11,3 +11,7 @@ assert.equal(inRegion('UNKNOWN','EU'),false);
 assert.equal(inRegion('UNKNOWN','Global'),true);
 assert.deepEqual(history([{observedAt:'2026-11-01',price:100},{observedAt:'2026-11-01',price:300},{observedAt:'2026-11-03',price:500}],'median'),[{date:'2026-11-01',value:200},{date:'2026-11-03',value:500}]);
 console.log('Price aggregation and regional filter checks passed');
+
+for (const country of ['JP','CN','HK','SG','KR','TW','IN','AE','TH','MY','ID','VN','PH']) { assert.equal(inRegion(country,'Asia'),true); assert(country in countries); }
+for (const country of ['FI','US','GB','UNKNOWN']) assert.equal(inRegion(country,'Asia'),false);
+assert(currencies.includes('JPY'));assert(currencies.includes('HKD'));assert(currencies.includes('SGD'));

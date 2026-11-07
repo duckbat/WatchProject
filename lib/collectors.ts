@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { countries, type Model } from './market';
-export const collectedPrice = z.object({modelId:z.string(),sourceId:z.string(),country:z.string(),currency:z.enum(['EUR','USD','GBP','CHF']),price:z.number().finite().positive().max(1e9),status:z.literal('asking'),observedAt:z.string(),condition:z.enum(['used','new','unknown']),sellerType:z.enum(['private','dealer','unknown']),contents:z.literal('unknown'),url:z.string().url(),title:z.string().max(500),collectedAt:z.string()});
+import { countries, currencies, type Model } from './market';
+export const collectedPrice = z.object({modelId:z.string(),sourceId:z.string(),country:z.string(),currency:z.enum(currencies),price:z.number().finite().positive().max(1e9),status:z.literal('asking'),observedAt:z.string(),condition:z.enum(['used','new','unknown']),sellerType:z.enum(['private','dealer','unknown']),contents:z.literal('unknown'),url:z.string().url(),title:z.string().max(500),collectedAt:z.string()});
 export type Candidate=z.infer<typeof collectedPrice>;
 export class CollectorError extends Error { code:string; constructor(code:string,message:string){super(message);this.code=code;} }
 const compact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
