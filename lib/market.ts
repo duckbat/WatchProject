@@ -46,7 +46,15 @@ export const currencies = ['EUR','USD','GBP','CHF','NOK','SEK','DKK','JPY','CNY'
 export const asia = new Set(['AF','AM','AZ','BH','BD','BT','BN','KH','CN','CY','GE','HK','IN','ID','IR','IQ','IL','JP','JO','KZ','KW','KG','LA','LB','MO','MY','MV','MN','MM','NP','KP','OM','PK','PS','PH','QA','SA','SG','KR','LK','SY','TW','TJ','TH','TL','TR','TM','AE','UZ','VN','YE']);
 Object.assign(countries,{AF:'Afghanistan',AM:'Armenia',AZ:'Azerbaijan',BH:'Bahrain',BD:'Bangladesh',BT:'Bhutan',BN:'Brunei',KH:'Cambodia',CN:'China',GE:'Georgia',HK:'Hong Kong',IN:'India',ID:'Indonesia',IR:'Iran',IQ:'Iraq',IL:'Israel',JO:'Jordan',KZ:'Kazakhstan',KW:'Kuwait',KG:'Kyrgyzstan',LA:'Laos',LB:'Lebanon',MO:'Macao',MY:'Malaysia',MV:'Maldives',MN:'Mongolia',MM:'Myanmar',NP:'Nepal',KP:'North Korea',OM:'Oman',PK:'Pakistan',PS:'Palestine',PH:'Philippines',QA:'Qatar',SA:'Saudi Arabia',SG:'Singapore',KR:'South Korea',LK:'Sri Lanka',SY:'Syria',TW:'Taiwan',TJ:'Tajikistan',TH:'Thailand',TL:'Timor-Leste',TR:'Türkiye',TM:'Turkmenistan',AE:'United Arab Emirates',UZ:'Uzbekistan',VN:'Vietnam',YE:'Yemen'});
 export const eu = new Set(["FI","DE","FR","IT","ES","NL","SE","DK","AT","BE","IE","PT","PL","CZ","EE","LV","LT","LU","MT","CY","GR","HR","SI","SK","HU","RO","BG"]);
-export function inRegion(country:string, region:string) { return region === "Global" || (region === "EU" ? eu.has(country) : region === "US" ? country === "US" : region === "Asia" ? asia.has(country) : country === region); }
+/** Seller regions offered in the header. A country code (FI, GB, …) also works as a region. */
+export const nordic = new Set(["FI","SE","NO","DK","IS"]);
+export const latinAmerica = new Set(["MX","GT","BZ","HN","SV","NI","CR","PA","CU","DO","PR","HT","CO","VE","EC","PE","BO","BR","PY","UY","AR","CL"]);
+Object.assign(countries,{IS:"Iceland",MX:"Mexico",GT:"Guatemala",BZ:"Belize",HN:"Honduras",SV:"El Salvador",NI:"Nicaragua",CR:"Costa Rica",PA:"Panama",CU:"Cuba",DO:"Dominican Republic",PR:"Puerto Rico",HT:"Haiti",CO:"Colombia",VE:"Venezuela",EC:"Ecuador",PE:"Peru",BO:"Bolivia",BR:"Brazil",PY:"Paraguay",UY:"Uruguay",AR:"Argentina",CL:"Chile"});
+export function inRegion(country:string, region:string) {
+ if (region === "Global") return true;
+ const group = {EU:eu, Nordic:nordic, Asia:asia, Latin:latinAmerica}[region];
+ return group ? group.has(country) : country === region;
+}
 export function summarize(values:number[], method="median") { if(!values.length)return null; if(method==="average")return values.reduce((a,b)=>a+b,0)/values.length; const s=[...values].sort((a,b)=>a-b); const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2; }
 export const money = (n:number|null,currency="EUR") => n===null?"—":new Intl.NumberFormat("en",{style:"currency",currency,maximumFractionDigits:0}).format(n);
 export function history(items:Observation[],method:string){ const groups=new Map<string,number[]>();for(const o of items){const xs=groups.get(o.observedAt)||[];xs.push(o.price);groups.set(o.observedAt,xs);}return [...groups].sort(([a],[b])=>a.localeCompare(b)).map(([date,values])=>({date,value:summarize(values,method)!})); }

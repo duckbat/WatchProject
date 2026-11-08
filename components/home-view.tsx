@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { ArrowRight, Check, LineChart, Radar, Search, ShieldCheck } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Check, ChevronLeft, ChevronRight, LineChart, Radar, Search, ShieldCheck } from 'lucide-react';
 import { catalog, money, type Model } from '../lib/market';
 import FilterBar from './filter-bar';
 import SearchBox from './search-box';
 import WatchPhoto from './watch-photo';
+import { FavoriteButton } from './favorites';
 import { popularBrands, type BrandFacet, type Prefs, type Route } from './shared';
 
 type CatalogPage = { items: Model[]; total: number; totalCatalog: number; pages: number; brands: string[] };
@@ -17,13 +18,15 @@ type Props = {
   priceFor: (id: string) => { value: number | null; count: number };
   ownedIds: Set<string>;
   recent: Model[];
+  favoriteIds: string[];
   ownedModels: Model[];
   onModels: (ms: Model[]) => void;
 };
 
 export function WatchCard({ model, price, owned, onOpen }: { model: Model; price?: { value: number | null; count: number; currency: string }; owned?: boolean; onOpen: () => void }) {
   return (
-    <button className="watch-tile" onClick={onOpen}>
+    <article className="watch-tile">
+      <button className="watch-tile-open" onClick={onOpen}>
       <div className="watch-tile-photo">
         <WatchPhoto key={model.imageUrl || model.id} model={model} />
         {owned && (
@@ -57,11 +60,26 @@ export function WatchCard({ model, price, owned, onOpen }: { model: Model; price
           )}
         </div>
       </div>
-    </button>
+      </button>
+      <FavoriteButton modelId={model.id} />
+    </article>
   );
 }
 
-export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, priceFor, ownedIds, recent, ownedModels, onModels }: Props) {
+/** A horizontal row of cards with previous/next buttons (the row also scrolls by touch and trackpad). */
+function ScrollRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const by = (dir: number) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: 'smooth' });
+  return (
+    <div className="scroll-row">
+      <button className="scroll-btn prev" aria-label={`Scroll ${label} left`} onClick={() => by(-1)}><ChevronLeft size={18} /></button>
+      <div className="tile-row" ref={ref} role="list" aria-label={label}>{children}</div>
+      <button className="scroll-btn next" aria-label={`Scroll ${label} right`} onClick={() => by(1)}><ChevronRight size={18} /></button>
+    </div>
+  );
+}
+
+export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, priceFor, ownedIds, recent, favoriteIds, ownedModels, onModels }: Props) {
   const q = route.q || '';
   const brand = route.brand || '';
   const searching = Boolean(q || brand);
@@ -70,9 +88,22 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tracked, setTracked] = useState<Model[]>([]);
+  const [priced, setPriced] = useState<Record<string, Model>>({});
   const totalCatalog = brands.reduce((n, b) => n + b.count, 0);
 
   useEffect(() => setPage(1), [q, brand]);
+  // Market prices for the favourites and recently viewed rows, in the selected currency.
+  const cardIds = [...new Set([...favoriteIds, ...recent.map((m) => m.id)])].slice(0, 200).join(',');
+  useEffect(() => {
+    if (searching || !cardIds) return;
+    const controller = new AbortController();
+    fetch(`/api/catalog?${new URLSearchParams({ ids: cardIds, currency: prefs.currency })}`, { signal: controller.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
+      .then((d) => setPriced(Object.fromEntries((d?.items || []).map((m) => [m.id, m]))))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [cardIds, searching, prefs.currency]);
+  const favorites = favoriteIds.map((id) => priced[id]).filter(Boolean);
   // The watches with the most market prices found so far; the starter list shows until data exists.
   useEffect(() => {
     if (searching) return;
@@ -181,16 +212,30 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
         </section>
       ) : (
         <>
+          {favoriteIds.length > 0 && (
+            <section className="home-section">
+              <div className="home-section-head">
+                <h2>Favourites</h2>
+                <p>{favoriteIds.length} watch{favoriteIds.length === 1 ? '' : 'es'}</p>
+              </div>
+              <ScrollRow label="Favourites">
+                {favorites.length
+                  ? favorites.map((m) => <WatchCard key={m.id} model={m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />)
+                  : favoriteIds.map((id) => <div key={id} className="watch-tile skeleton" />)}
+              </ScrollRow>
+            </section>
+          )}
+
           {recent.length > 0 && (
             <section className="home-section">
               <div className="home-section-head">
                 <h2>Recently viewed</h2>
               </div>
-              <div className="tile-row">
-                {recent.slice(0, 6).map((m) => (
-                  <WatchCard key={m.id} model={m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />
+              <ScrollRow label="Recently viewed">
+                {recent.slice(0, 12).map((m) => (
+                  <WatchCard key={m.id} model={priced[m.id] || m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />
                 ))}
-              </div>
+              </ScrollRow>
             </section>
           )}
 

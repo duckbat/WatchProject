@@ -12,6 +12,7 @@ import PriceHistory from './price-history';
 import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
 import { computeMetrics, dedupeCrossPosts, withoutOutliers, type MetricPrice } from '../lib/metrics';
 import ModelSpecs from './model-specs';
+import { FavoriteButton } from './favorites';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
 import { matchesPrefs, periodStart, periods, regions, statuses, today, type LiveListing, type LiveResult, type ModalKind, type Prefs, type Route } from './shared';
@@ -295,6 +296,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <h1>Ref. {model.reference}</h1>
         </div>
         <div className="detail-actions">
+          <FavoriteButton modelId={model.id} label />
           <button className="primary" onClick={() => onModal('owned')}><Plus size={15} />Add to my watches</button>
           <button className="secondary" onClick={() => onModal('observation')}>Record a price</button>
         </div>
@@ -403,7 +405,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
 
           <div className="history-card">
             <div className="region-tabs" role="tablist" aria-label="Region">
-              {[['Global', 'Global'], ['US', 'America'], ['EU', 'Europe'], ['Asia', 'Asia'], ['FI', 'Finland']].map(([v, l]) => (
+              {regions.map(([v, l]) => (
                 <button key={v} role="tab" aria-selected={prefs.region === v} className={prefs.region === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, region: v })}>{l}</button>
               ))}
             </div>

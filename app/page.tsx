@@ -9,7 +9,8 @@ import RecordModal from "../components/record-modal";
 import { BrandsView, CollectionView, RecordsView, SourcesView } from "../components/account-views";
 import ClipView from "../components/save-from-web";
 import GroupImport from "../components/group-import";
-import { defaultPrefs, matchesPrefs, parseRoute, routeUrl, type BrandFacet, type LiveListing, type Me, type ModalKind, type Prefs, type Route } from "../components/shared";
+import { FavoritesContext } from "../components/favorites";
+import { defaultPrefs, matchesPrefs, parseRoute, regions, routeUrl, type BrandFacet, type LiveListing, type Me, type ModalKind, type Prefs, type Route } from "../components/shared";
 
 const PREFS_KEY = "watchledger:prefs";
 const RECENT_KEY = "watchledger:recent-watches";
@@ -34,7 +35,7 @@ export default function Home() {
     setReady(true);
     try {
       const p = JSON.parse(localStorage.getItem(PREFS_KEY) || "null");
-      if (p) setPrefsState({ ...defaultPrefs, ...p, basis: p.priceTypesVersion === 2 ? p.basis : "all" });
+      if (p) setPrefsState({ ...defaultPrefs, ...p, basis: p.priceTypesVersion === 2 ? p.basis : "all", region: regions.some(([r]) => r === p.region) ? p.region : "Global" });
       setRecentIds(JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"));
     } catch {}
     const onPop = () => setRoute(parseRoute(location.search));
@@ -71,7 +72,7 @@ export default function Home() {
 
   // Resolve catalog details for watches referenced by records and recent views.
   useEffect(() => {
-    const ids = [...new Set([...entries.filter((e) => e.kind === "owned" || e.kind === "observation").map((e) => e.data.modelId as string), ...recentIds])].filter((id) => !cache[id]);
+    const ids = [...new Set([...entries.filter((e) => e.kind === "owned" || e.kind === "observation" || e.kind === "favorite").map((e) => e.data.modelId as string), ...recentIds])].filter((id) => !cache[id]);
     if (!ids.length) return;
     const controller = new AbortController();
     Promise.all(
@@ -104,6 +105,22 @@ export default function Home() {
   const owned = entries.filter((e) => e.kind === "owned");
   const observations = entries.filter((e) => e.kind === "observation") as (Entry & { data: Observation })[];
   const ownedIds = new Set(owned.map((e) => e.data.modelId as string));
+  // Favourites, newest first. A second click removes the record (no confirmation: re-adding is one click).
+  const favorites = entries.filter((e) => e.kind === "favorite").reverse();
+  const favoriteIds = new Set(favorites.map((e) => e.data.modelId as string));
+  async function toggleFavorite(modelId: string) {
+    if (!signedIn) return setError("Please sign in to save favourites.");
+    const existing = favorites.find((e) => e.data.modelId === modelId);
+    try {
+      if (existing) {
+        const r = await fetch(`/api/records?id=${encodeURIComponent(existing.id)}`, { method: "DELETE" });
+        if (!r.ok) throw new Error("Could not remove the favourite");
+        setEntries((prev) => prev.filter((e) => e.id !== existing.id));
+      } else await saveRecord("favorite", { modelId });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update favourites");
+    }
+  }
   const priceFor = (id: string) => {
     const xs = observations.filter((e) => e.data.modelId === id && matchesPrefs(e.data, prefs));
     return { value: summarize(latestListings(xs).map((e) => e.data.price), prefs.method), count: xs.length };
@@ -154,6 +171,7 @@ export default function Home() {
   };
 
   return (
+    <FavoritesContext.Provider value={{ ids: favoriteIds, toggle: toggleFavorite }}>
     <div className="app">
       <SiteHeader route={route} me={me} brands={brands} ownedCount={owned.length} observationCount={observations.length} onNavigate={navigate} onModal={openModal} onExport={exportData} prefs={prefs} onPrefs={setPrefs} />
       <main className="page">
@@ -205,6 +223,7 @@ export default function Home() {
             priceFor={priceFor}
             ownedIds={ownedIds}
             recent={recentIds.map((id) => models[id]).filter(Boolean)}
+            favoriteIds={favorites.map((e) => e.data.modelId as string)}
             ownedModels={[...ownedIds].map((id) => models[id]).filter(Boolean)}
             onModels={addModels}
           />
@@ -228,5 +247,6 @@ export default function Home() {
         />
       )}
     </div>
+    </FavoritesContext.Provider>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
-import { ArrowLeftRight, Globe2, SlidersHorizontal, Tag } from 'lucide-react';
-import { regions, statuses, type Prefs } from './shared';
+import { ArrowLeftRight, SlidersHorizontal, Tag } from 'lucide-react';
+import { statuses, type Prefs } from './shared';
 
 type Props = {
   prefs: Prefs;
@@ -14,7 +14,7 @@ type Props = {
 /** Compact filters that sit directly under the search field instead of a sidebar. */
 export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, extended }: Props) {
   const set = (k: keyof Prefs) => (e: React.ChangeEvent<HTMLSelectElement>) => onPrefs({ ...prefs, [k]: e.target.value });
-  const changed = (['region', 'basis', 'method', 'condition', 'seller'] as const).some(
+  const changed = (['basis', 'method', 'condition', 'seller'] as const).some(
     (k) => prefs[k] !== ({ region: 'Global', currency: 'EUR', basis: 'all', method: 'median', condition: 'all', seller: 'all' } as Prefs)[k],
   );
   return (
@@ -31,14 +31,6 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
           </select>
         </label>
       )}
-      <label className={`filter-pill${prefs.region !== 'Global' ? ' on' : ''}`}>
-        <Globe2 size={13} aria-hidden />
-        <select aria-label="Seller region" value={prefs.region} onChange={set('region')}>
-          {regions.map(([v, l]) => (
-            <option key={v} value={v}>{v === 'Global' ? 'All regions' : l}</option>
-          ))}
-        </select>
-      </label>
       <label className={`filter-pill${prefs.basis !== 'all' ? ' on' : ''}`}>
         <select aria-label="Price type" value={prefs.basis} onChange={set('basis')}>
           {Object.entries(statuses).map(([v, l]) => (
@@ -83,7 +75,7 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
           type="button"
           className="filter-reset"
           onClick={() => {
-            onPrefs({ ...prefs, region: 'Global', basis: 'all', method: 'median', condition: 'all', seller: 'all' });
+            onPrefs({ ...prefs, basis: 'all', method: 'median', condition: 'all', seller: 'all' });
             onBrand?.('');
           }}
         >

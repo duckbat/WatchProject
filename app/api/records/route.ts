@@ -13,6 +13,7 @@ const payload=z.discriminatedUnion("kind",[
  z.object({kind:z.literal("source"),data:z.object({name:short,url,country:z.string().refine(v=>!v||v in countries),mode:z.literal("Manual observations")})}),
  z.object({kind:z.literal("model"),data:z.object({brand:short,name:short,reference:short,color:z.literal("#344d47"),size:z.string().max(40),imageUrl:url.optional()})}),
  z.object({kind:z.literal("retail"),data:z.object({modelId:short,price:z.number().finite().positive().max(1e9),currency,asOf:date,url:url.optional(),source:z.string().max(160).optional()})}),
+ z.object({kind:z.literal("favorite"),data:z.object({modelId:short})}),
  z.object({kind:z.literal("owned"),data:z.object({modelId:short,cost:z.number().finite().min(0).max(1e9),currency,purchaseDate:date})}),
  z.object({kind:z.literal("observation"),data:z.object({modelId:short,sourceId:short,country:z.string().refine(v=>v in countries),currency,price:z.number().finite().positive().max(1e9),status:z.enum(["asking","confirmed-sale","sold-asking"]),observedAt:date,condition:z.enum(["used","new","unknown"]),sellerType:z.enum(["private","dealer","unknown"]),contents:z.enum(["full-set","watch-only","unknown"]),url,title:z.string().max(500).optional(),collectedAt:z.string().datetime().optional()})})
 ]);
@@ -23,6 +24,7 @@ export async function POST(req:Request){const user=await getChatGPTUser();if(!us
  const rows=await db.select().from(records).where(eq(records.owner,user.userId));
  if("modelId" in data && !findCatalogModel(data.modelId)&&!rows.some(r=>r.kind==="model"&&r.id===data.modelId))return Response.json({error:"Choose a watch model first."},{status:400});
  if("sourceId" in data&&!defaultSources.some(s=>s.id===data.sourceId)&&!rows.some(r=>r.kind==="source"&&r.id===data.sourceId))return Response.json({error:"Choose a source first."},{status:400});
+ if(kind==="favorite"&&rows.some(r=>r.kind==="favorite"&&JSON.parse(r.payload).modelId===data.modelId))return Response.json({error:"Already in your favourites."},{status:409});
  if(kind==="observation"&&data.url&&rows.some(r=>r.kind==="observation"&&JSON.parse(r.payload).url===data.url&&JSON.parse(r.payload).observedAt===data.observedAt))return Response.json({error:"This listing is already recorded for this date."},{status:409});
  const id=crypto.randomUUID();await db.insert(records).values({id,owner:user.userId,kind,payload:JSON.stringify(data)});return Response.json({id,kind,data},{status:201});
  }catch{return Response.json({error:"Could not save. Please retry."},{status:500})}}

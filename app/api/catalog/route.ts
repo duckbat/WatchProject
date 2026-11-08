@@ -39,7 +39,9 @@ export async function GET(req: Request) {
   if (params.has('ids')) {
     const ids = params.get('ids')!.split(',');
     if (ids.length > 200) return Response.json({ error: 'Request at most 200 model IDs.' }, { status: 400 });
-    return Response.json({ items: ids.map(findCatalogModel).filter(Boolean) });
+    const items = ids.map(findCatalogModel).filter((m): m is NonNullable<typeof m> => Boolean(m));
+    // With a currency, cards (favourites, recently viewed) also get their market price.
+    return Response.json({ items: params.has('currency') ? await withMarket(items, currency) : items });
   }
 
   // All dial/bracelet variants of a reference, labelled by what differs between them.

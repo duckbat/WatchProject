@@ -13,7 +13,7 @@ export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveLis
 
 export const defaultPrefs: Prefs = { region: 'Global', currency: 'EUR', basis: 'all', method: 'median', period: '365', condition: 'all', seller: 'all', convert: 'on', dialScope: 'all' };
 export const statuses: Record<string, string> = { asking: 'Asking price', 'confirmed-sale': 'Confirmed sale', 'sold-asking': 'Sold · last ask' };
-export const regions: [string, string][] = [['Global', 'Global'], ['EU', 'European Union'], ['US', 'United States'], ['Asia', 'Asia'], ['FI', 'Finland'], ['SE', 'Sweden'], ['NO', 'Norway'], ['DK', 'Denmark'], ['GB', 'United Kingdom'], ['CH', 'Switzerland']];
+export const regions: [string, string][] = [['Global', 'All world'], ['EU', 'EU'], ['Nordic', 'Nordic'], ['US', 'US'], ['Asia', 'Asia'], ['Latin', 'Latin America']];
 export const periods: [string, string][] = [['30', '1M'], ['90', '3M'], ['180', '6M'], ['365', '1Y'], ['36500', 'All']];
 export const popularBrands = ['Rolex', 'Omega', 'Tudor', 'Cartier', 'Patek Philippe', 'Audemars Piguet', 'Seiko', 'Grand Seiko', 'TAG Heuer', 'Breitling', 'IWC', 'Longines'];
 export const popularSearches = ['Rolex Submariner', 'Omega Speedmaster', 'Tudor Black Bay', 'Rolex Datejust 36', 'Cartier Santos', 'Seiko Prospex'];

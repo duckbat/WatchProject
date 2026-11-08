@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, BookmarkPlus, ClipboardPaste, ChevronDown, Database, Download, Layers3, ListChecks, LogIn, LogOut, Plus, Watch } from 'lucide-react';
+import { BookOpen, BookmarkPlus, ClipboardPaste, ChevronDown, Database, Download, Globe2, Layers3, ListChecks, LogIn, LogOut, Plus, Watch } from 'lucide-react';
 import { currencies, type Model } from '../lib/market';
 import SearchBox from './search-box';
-import type { BrandFacet, Me, ModalKind, Prefs, Route } from './shared';
+import { regions, type BrandFacet, type Me, type ModalKind, type Prefs, type Route } from './shared';
 
 type Props = {
   route: Route;
@@ -85,6 +85,15 @@ export default function SiteHeader({ route, me, brands, ownedCount, observationC
             />
           </div>
         )}
+
+        <label className="currency-picker region-picker" title="Seller region for all prices">
+          <Globe2 size={14} className="currency-symbol" aria-hidden />
+          <select aria-label="Region" value={prefs.region} onChange={(e) => onPrefs({ ...prefs, region: e.target.value })}>
+            {regions.map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </label>
 
         <label className="currency-picker" title="Currency for all prices">
           <span className="currency-symbol" aria-hidden>{new Intl.NumberFormat('en', { style: 'currency', currency: prefs.currency, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((p) => p.type === 'currency')?.value}</span>
