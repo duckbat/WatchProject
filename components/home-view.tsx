@@ -6,6 +6,7 @@ import FilterBar from './filter-bar';
 import SearchBox from './search-box';
 import WatchPhoto from './watch-photo';
 import { FavoriteButton } from './favorites';
+import { cachedPrices, rememberPrices, type CardMarket } from './price-cache';
 import { popularBrands, type BrandFacet, type Prefs, type Route } from './shared';
 
 type CatalogPage = { items: Model[]; total: number; totalCatalog: number; pages: number; brands: string[] };
@@ -19,6 +20,7 @@ type Props = {
   ownedIds: Set<string>;
   recent: Model[];
   favoriteIds: string[];
+  favoriteModels: Model[];
   ownedModels: Model[];
   onModels: (ms: Model[]) => void;
 };
@@ -79,7 +81,7 @@ function ScrollRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, priceFor, ownedIds, recent, favoriteIds, ownedModels, onModels }: Props) {
+export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, priceFor, ownedIds, recent, favoriteIds, favoriteModels, ownedModels, onModels }: Props) {
   const q = route.q || '';
   const brand = route.brand || '';
   const searching = Boolean(q || brand);
@@ -88,37 +90,65 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tracked, setTracked] = useState<Model[]>([]);
-  const [priced, setPriced] = useState<Record<string, Model>>({});
+  const [market, setMarket] = useState<Record<string, CardMarket | null>>({});
+  const [trackedMore, setTrackedMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const totalCatalog = brands.reduce((n, b) => n + b.count, 0);
 
   useEffect(() => setPage(1), [q, brand]);
-  // Market prices for the favourites and recently viewed rows, in the selected currency.
+  // Prices for the favourites and recently viewed rows: saved ones show at once; only missing or stale ones
+  // (older than 6 hours) are fetched, then saved for the next visit.
   const cardIds = [...new Set([...favoriteIds, ...recent.map((m) => m.id)])].slice(0, 200).join(',');
   useEffect(() => {
     if (searching || !cardIds) return;
+    const { prices, stale } = cachedPrices(cardIds.split(','), prefs.currency);
+    setMarket(prices);
+    if (!stale.length) return;
     const controller = new AbortController();
-    fetch(`/api/catalog?${new URLSearchParams({ ids: cardIds, currency: prefs.currency })}`, { signal: controller.signal })
+    fetch(`/api/catalog?${new URLSearchParams({ ids: stale.join(','), currency: prefs.currency })}`, { signal: controller.signal })
       .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
-      .then((d) => setPriced(Object.fromEntries((d?.items || []).map((m) => [m.id, m]))))
+      .then((d) => {
+        if (!d?.items) return;
+        const fresh = Object.fromEntries(d.items.map((m) => [m.id, m.market ?? null]));
+        rememberPrices(fresh, prefs.currency);
+        setMarket((prev) => ({ ...prev, ...fresh }));
+      })
       .catch(() => {});
     return () => controller.abort();
   }, [cardIds, searching, prefs.currency]);
-  const favorites = favoriteIds.map((id) => priced[id]).filter(Boolean);
+  const withMarket = (m: Model): Model => (market[m.id] ? { ...m, market: market[m.id]! } : m);
+  const favorites = favoriteModels.map(withMarket);
   // The watches with the most market prices found so far; the starter list shows until data exists.
   useEffect(() => {
     if (searching) return;
     const controller = new AbortController();
     fetch(`/api/catalog?${new URLSearchParams({ popular: '1', limit: '12', currency: prefs.currency })}`, { signal: controller.signal })
-      .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[]; hasMore?: boolean }>) : null))
       .then((d) => {
         if (!d?.items?.length) return;
         setTracked(d.items);
+        setTrackedMore(Boolean(d.hasMore));
         onModels(d.items);
       })
       .catch(() => {});
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searching, prefs.currency]);
+  // Next batch of most tracked watches, appended below the ones shown.
+  async function loadMoreTracked() {
+    setLoadingMore(true);
+    try {
+      const r = await fetch(`/api/catalog?${new URLSearchParams({ popular: '1', limit: '12', offset: String(tracked.length), currency: prefs.currency })}`);
+      const d = r.ok ? ((await r.json()) as { items?: Model[]; hasMore?: boolean }) : null;
+      if (d?.items) {
+        setTracked((prev) => [...prev, ...d.items!.filter((m) => !prev.some((p) => p.id === m.id))]);
+        setTrackedMore(Boolean(d.hasMore));
+        onModels(d.items);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }
   useEffect(() => {
     if (!searching) return;
     const controller = new AbortController();
@@ -219,9 +249,10 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
                 <p>{favoriteIds.length} watch{favoriteIds.length === 1 ? '' : 'es'}</p>
               </div>
               <ScrollRow label="Favourites">
-                {favorites.length
-                  ? favorites.map((m) => <WatchCard key={m.id} model={m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />)
-                  : favoriteIds.map((id) => <div key={id} className="watch-tile skeleton" />)}
+                {favoriteIds.map((id) => {
+                  const m = favorites.find((f) => f.id === id);
+                  return m ? <WatchCard key={id} model={m} price={withCurrency(id)} owned={ownedIds.has(id)} onOpen={() => open(m)} /> : <div key={id} className="watch-tile skeleton" />;
+                })}
               </ScrollRow>
             </section>
           )}
@@ -233,7 +264,7 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
               </div>
               <ScrollRow label="Recently viewed">
                 {recent.slice(0, 12).map((m) => (
-                  <WatchCard key={m.id} model={priced[m.id] || m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />
+                  <WatchCard key={m.id} model={withMarket(m)} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />
                 ))}
               </ScrollRow>
             </section>
@@ -269,6 +300,11 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
                 <WatchCard key={m.id} model={m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />
               ))}
             </div>
+            {trackedMore && (
+              <div className="load-more">
+                <button className="secondary" disabled={loadingMore} onClick={loadMoreTracked}>{loadingMore ? 'Loading…' : 'Show more watches'}</button>
+              </div>
+            )}
           </section>
 
           {ownedModels.length > 0 && (

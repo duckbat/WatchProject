@@ -224,6 +224,7 @@ export default function Home() {
             ownedIds={ownedIds}
             recent={recentIds.map((id) => models[id]).filter(Boolean)}
             favoriteIds={favorites.map((e) => e.data.modelId as string)}
+            favoriteModels={favorites.map((e) => models[e.data.modelId as string]).filter(Boolean)}
             ownedModels={[...ownedIds].map((id) => models[id]).filter(Boolean)}
             onModels={addModels}
           />

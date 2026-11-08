@@ -603,3 +603,4 @@
 .region-picker + .currency-picker { margin-left: 0; }
 .region-picker .currency-symbol { color: var(--accent); }
 .suggestions { text-align: left; }
+.load-more { display: flex; justify-content: center; margin-top: 18px; }

@@ -56,7 +56,10 @@ export async function GET(req: Request) {
   // Most tracked: watches with the most priced market observations (asking prices, sales, auction results).
   if (params.get('popular') === '1') {
     const limit = Math.min(Math.max(Number(params.get('limit')) || 12, 1), 24);
-    return Response.json({ items: await withMarket(mostTracked(await marketPopularity(), limit), currency) }, { headers: { 'Cache-Control': 'public, max-age=300' } });
+    const offset = Math.min(Math.max(Math.floor(Number(params.get('offset')) || 0), 0), 5000);
+    const all = mostTracked(await marketPopularity(), Infinity);
+    const items = await withMarket(all.slice(offset, offset + limit), currency);
+    return Response.json({ items, hasMore: all.length > offset + limit }, { headers: { 'Cache-Control': 'public, max-age=300' } });
   }
 
   const input = query.safeParse(Object.fromEntries(params));

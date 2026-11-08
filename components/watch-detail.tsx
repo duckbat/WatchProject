@@ -13,6 +13,7 @@ import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts'
 import { computeMetrics, dedupeCrossPosts, withoutOutliers, type MetricPrice } from '../lib/metrics';
 import ModelSpecs from './model-specs';
 import { FavoriteButton } from './favorites';
+import { RememberPrice } from './price-cache';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
 import { matchesPrefs, periodStart, periods, regions, statuses, today, type LiveListing, type LiveResult, type ModalKind, type Prefs, type Route } from './shared';
@@ -612,6 +613,10 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         </section>
       )}
 
+      {/* Cards show the default view (1 year, all world, all dials, median); save this page's price only when it matches. */}
+      {liveState === 'ready' && marketPrice !== null && prefs.region === 'Global' && prefs.period === '365' && prefs.method === 'median' && prefs.basis === 'all' && prefs.condition === 'all' && prefs.seller === 'all' && (!hasVariants || allDials) && (
+        <RememberPrice id={model.id} market={{ price: Math.round(marketPrice), currency: prefs.currency, count: pool.length }} />
+      )}
       {specsOpen && <ModelSpecs model={model} onClose={() => setSpecsOpen(false)} onOpen={(id) => { setSpecsOpen(false); onNavigate({ view: 'watch', id }); }} />}
     </div>
   );
