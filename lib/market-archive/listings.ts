@@ -6,6 +6,13 @@ import type { Model } from '../market';
 
 export type ArchivedListing = LiveListing & { archived?: boolean; firstSeenAt?: string; lastSeenAt?: string };
 
+// Keep old .fi observations under the same key as the corrected marketplace links.
+function currentListing(l: ArchivedListing): ArchivedListing {
+  if (l.sourceId !== 'kellotux') return l;
+  const url = (value: string) => value.replace(/^https:\/\/(?:www\.)?kellotux\.fi\//, 'https://kellotux.com/');
+  return { ...l, url: url(l.url), canonicalUrl: l.canonicalUrl && url(l.canonicalUrl) };
+}
+
 export function reclassifyListings(listings: ArchivedListing[], model: Model): ArchivedListing[] {
   // Manually assigned listings and others that no longer match any rule stay visible as similar, never priced.
   return listings.map((l) => ({ ...l, match: (l.identity ? classifyIdentity(l.title, model, l.identity, l.matchDetails) : classifyMatch(l.title, model, l.matchDetails)) ?? 'similar' }));
@@ -33,6 +40,8 @@ export function mergeListings(
   incoming: LiveListing[],
   now = new Date().toISOString(),
 ): ArchivedListing[] {
+  previous = previous.map(currentListing);
+  incoming = incoming.map(currentListing);
   const listings = new Map(previous.map((l) => [l.canonicalUrl || l.url, { ...l, archived: true }]));
   for (const l of incoming) {
     const key = l.canonicalUrl || l.url, old = listings.get(key);

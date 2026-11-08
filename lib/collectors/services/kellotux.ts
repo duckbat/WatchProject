@@ -25,7 +25,7 @@ export function parseKellotux(body: unknown, model: Model, now = new Date()): Li
     const reported = sold && p.sold_on_site === true && typeof p.sold_price === 'number' && p.sold_price > 0;
     const price = reported ? p.sold_price : p.price;
     const date = !sold && typeof p.content_updated_at === 'string' && Number.isFinite(+new Date(p.content_updated_at)) && +new Date(p.content_updated_at) <= +now ? p.content_updated_at.slice(0, 10) : undefined;
-    const candidate = collectedPrice.safeParse({ modelId: model.id, sourceId: 'kellotux', country: typeof p.country === 'string' && p.country in countries ? p.country : 'UNKNOWN', currency: 'EUR', price, status: reported ? 'confirmed-sale' : sold ? 'sold-asking' : 'asking', observedAt: now.toISOString().slice(0, 10), condition: 'unknown', sellerType: p.expand?.user?.seller_type === 'business' ? 'dealer' : p.expand?.user?.seller_type === 'private' ? 'private' : 'unknown', contents: p.set_included === 'full_set' ? 'full-set' : p.set_included === 'watch_only' ? 'watch-only' : 'unknown', url: `https://kellotux.fi/listing/${p.id}`, title: `${title}${reported ? ' · Seller-reported sale; sale date unavailable' : ''}`.slice(0, 500), collectedAt: now.toISOString() });
+    const candidate = collectedPrice.safeParse({ modelId: model.id, sourceId: 'kellotux', country: typeof p.country === 'string' && p.country in countries ? p.country : 'UNKNOWN', currency: 'EUR', price, status: reported ? 'confirmed-sale' : sold ? 'sold-asking' : 'asking', observedAt: now.toISOString().slice(0, 10), condition: 'unknown', sellerType: p.expand?.user?.seller_type === 'business' ? 'dealer' : p.expand?.user?.seller_type === 'private' ? 'private' : 'unknown', contents: p.set_included === 'full_set' ? 'full-set' : p.set_included === 'watch_only' ? 'watch-only' : 'unknown', url: `https://kellotux.com/listing/${p.id}`, title: `${title}${reported ? ' · Seller-reported sale; sale date unavailable' : ''}`.slice(0, 500), collectedAt: now.toISOString() });
     if (!candidate.success) continue;
     let canonicalUrl: string | undefined;
     try {
@@ -43,8 +43,8 @@ export function parseKellotux(body: unknown, model: Model, now = new Date()): Li
 
 export async function collectKellotux(model: Model, fetcher: typeof fetch = fetch, now = new Date()): Promise<CollectorResult> {
   const query = baseReference(model.reference), escaped = query.replace(/["\\]/g, '\\$&');
-  const searchUrl = `https://kellotux.fi/listings?${new URLSearchParams({ reference: query })}`;
-  const source = { id: 'kellotux', name: 'Kellotux.fi', searchUrl };
+  const searchUrl = `https://kellotux.com/listings?${new URLSearchParams({ reference: query })}`;
+  const source = { id: 'kellotux', name: 'Kellotux.com', searchUrl };
   try {
     const url = `https://api.kellotux.com/api/collections/watch_listings/records?${new URLSearchParams({ page: '1', perPage: '60', sort: '-content_updated_at', expand: 'user', fields, filter: `deleted != true && listing_type = "sell" && (expires_at = "" || expires_at > @now) && reference_number ~ "${escaped}"` })}`;
     const listings = parseKellotux(JSON.parse(await safeFetch(url, {}, fetcher)), model, now);

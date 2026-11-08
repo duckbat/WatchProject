@@ -1,6 +1,6 @@
 # WatchProject — WatchLedger
 
-Finnish price coverage now includes Kellotux.fi used listings, Laatukellot.fi new/pre-owned offers, Keskisen Kello new-watch prices and Huuto.net public sold evidence. New shop offers are shown separately from official MSRP and secondary-market prices. Dedicated seller references, dial colours and sizes are checked, and reported sales are summarized separately from sold-marked last asks. See `MARKETPLACES.md` for the exact coverage and sale-evidence rules.
+Finnish price coverage now includes Kellotux.com used listings, Laatukellot.fi new/pre-owned offers, Keskisen Kello new-watch prices and Huuto.net public sold evidence. New shop offers are shown separately from official MSRP and secondary-market prices. Dedicated seller references, dial colours and sizes are checked, and reported sales are summarized separately from sold-marked last asks. See `MARKETPLACES.md` for the exact coverage and sale-evidence rules.
 
 Market data now includes Antiquorum published sold results and selected Christie’s Geneva online catalogues (December 2023 and October 2026), alongside Nordic asking prices, WatchRecon/WatchUSeek sale posts and Phillips when reachable. Auction results enter the existing archived graphs and scheduled refresh. Estimates, bids and multi-watch bundles are excluded; sold-marked forum prices remain last asks. See `MARKETPLACES.md` for coverage limits and sources that are not connected.
 
