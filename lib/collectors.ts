@@ -4,21 +4,36 @@ export const collectedPrice = z.object({modelId:z.string(),sourceId:z.string(),c
 export type Candidate=z.infer<typeof collectedPrice>;
 export class CollectorError extends Error { code:string; constructor(code:string,message:string){super(message);this.code=code;} }
 const compact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
-const excluded=/\b(strap|bracelet|bezel|dial only|parts|replica|homage|ranneke|varaosat|box only|laatikko)\b/i;
+const excluded=/\b(strap|bracelet|bezel insert|bezel only|dial only|parts|replica|homage|ranneke|varaosat|box only|laatikko|lenke|lenker|länk|länkar|links? only)\b/i;
+/** A part sold for a watch ("bracelet for 126200", "Seiko SPB143 strap"), not the watch. "On Jubilee bracelet" describes a watch. */
+const wornOn=/\b(on|with|w\/|jubilee|oyster|president|oysterflex|steel|original|full|and|\+|&)\s+(bracelet|strap)s?\b/gi;
+const partFor=/\b(bracelet|strap|bezel|clasp|links?|lenke|länk)\s+(for|fits|to fit|til|för|für)\b/i;
+export const partsListing=(title:string)=>partFor.test(title)||excluded.test(title.replace(wornOn,' '));
+/** Wanted ads name the watch and a budget, not a price anyone asked. */
+const wanted=/(\[\s*wtb|\bwtb\b|want(?:ed)? to buy|\blooking for\b|\bostetaan\b|\bostan\b|\bkjøpes\b|\bkøbes\b|\bköpes\b|\bsøker\b|\bsöker\b|\bsuche\b|\betsitään\b)/i;
+/** "Sold" in the languages of the supported marketplaces. */
+export const soldWord=/(\[\s*sold|\bsold\b|\bsolgt\b|\bsåld\b|\bmyyty\b|\bverkauft\b|\bvenduto\b|\bvendu\b)/i;
 // Use the base reference for discovery only; its suffix identifies dial/bracelet variants.
 export function baseReference(reference:string){const ref=reference.trim();const m=ref.match(/^(.{4,}?)-\d{3,4}$/);return m?m[1]:ref;}
 function titleTokens(title:string){const out=new Set<string>();for(const t of title.toLowerCase().match(/[a-z0-9]+(?:[.\-/][a-z0-9]+)*/g)||[]){out.add(compact(t));const noRef=t.replace(/^ref(?:erence)?\.?/,'');out.add(compact(noRef));}return out;}
-const dialColors='black|white|blue|green|silver|grey|gray|champagne|brown|pink|purple|red|orange|yellow|salmon|turquoise|beige|ivory';
+const dialColors='black|white|blue|green|silver|grey|gray|champagne|brown|pink|purple|red|orange|yellow|salmon|turquoise|beige|ivory|slate|rhodium|anthracite|cream|coral';
+const nordicDialWords:Record<string,string>={svart:'black',sort:'black',musta:'black',vit:'white',hvit:'white',hvid:'white',valkoinen:'white',blå:'blue',blått:'blue',sininen:'blue',grön:'green',grönt:'green',grønn:'green',grøn:'green',vihreä:'green',grå:'grey',harmaa:'grey',sølv:'silver',rosa:'pink',roosa:'pink',röd:'red',rød:'red',punainen:'red',gul:'yellow',keltainen:'yellow',brun:'brown',ruskea:'brown',turkos:'turquoise',turkoosi:'turquoise',lila:'purple',lilla:'purple',violetti:'purple',urtavla:'dial',urskive:'dial'};
+const dialText=(text:string)=>text.replace(/\p{L}+/gu,w=>nordicDialWords[w.toLowerCase()]||w);
 // shortcut: recognized dial colors only; use structured dial metadata when sources expose more detail.
-function conflictingDial(text:string,name=''){
- // Only compare explicit dial descriptions; a silver case or blue strap is not evidence of dial color.
+function expectedDial(name=''){
  const expected=new Set<string>();
  for(const part of name.split('/').slice(1)){
   if(/\b(gold|steel|case|bezel|bracelet|leather|rubber|strap|ceramic|titanium)\b/i.test(part))continue;
   const color=part.trim().match(new RegExp(`^(${dialColors})\\b`,'i'))?.[1];
   if(color)expected.add(color.toLowerCase().replace('gray','grey'));
  }
+ return expected;
+}
+function conflictingDial(text:string,name=''){
+ // Only compare explicit dial descriptions; a silver case or blue strap is not evidence of dial color.
+ const expected=expectedDial(name);
  if(expected.size!==1)return false;
+ text=dialText(text);
  const before=new RegExp(`\\b(${dialColors})(?:[ -]+(?:sunburst|sunray|fluted|motif|palm|roman|diamond)){0,3}\\s+(?:dial|taulu)\\b`,'gi');
  const after=new RegExp(`\\b(?:dial|taulu)\\s*[:=-]\\s*(${dialColors})\\b`,'gi');
  const observed=[...text.matchAll(before),...text.matchAll(after)].map(m=>m[1].toLowerCase().replace('gray','grey'));
@@ -28,31 +43,69 @@ export function exactMatch(title:string, model:Pick<Model,'brand'|'reference'>&P
  const reference=compact(model.reference),text=`${title}\n${details}`;
  const tokens=titleTokens(text);
  const found=tokens.has(reference)||(/^(rolex|tudor)$/i.test(model.brand)&&tokens.has(`m${reference}`));
- return reference.length>=4 && compact(text).includes(compact(model.brand)) && found && !excluded.test(title) && !conflictingDial(text,model.name);
+ return reference.length>=4 && compact(text).includes(compact(model.brand)) && found && !partsListing(title) && !conflictingDial(text,model.name);
+}
+/** Dial colors a title names outside strap/bezel/case wording ("126200 Green Ombré", "Wimbledon"). */
+const dialStyles=['ombre','palm','motif','roman','diamond','meteorite','mother of pearl','tiffany','wimbledon'];
+const fold=(s:string)=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function titleDialConflict(title:string,name=''){
+ // A dial style the variant does not have ("Ombre", "Palm", "Roman") marks another variant of the same reference.
+ if(name.includes('/')){const n=fold(name),t=fold(title);if(dialStyles.some(st=>new RegExp(`\\b${st}`).test(t)&&!n.includes(st==='wimbledon'?'slate':st)))return true;}
+ const expected=expectedDial(name);if(expected.size!==1)return false;
+ const t=dialText(title).toLowerCase().replace(/\bwimbledon\b/g,'slate');
+ const named=[...t.matchAll(new RegExp(`\\b(${dialColors})\\b(?!\\s*(?:-\\s*)?(?:strap|bracelet|bezel|case|hands|leather|rubber|nato|band|lume|box|rem|reim|armband|ranneke))`,'g'))].map(m=>m[1].replace('gray','grey'));
+ return named.some(c=>!expected.has(c));
+}
+/**
+ * The listing names the catalog's base reference (126200 for 126200-0001) but not the variant suffix.
+ * Sellers almost never write Rolex/Tudor suffixes, so these listings carry most of the market; they are
+ * labelled "dial/bracelet not stated" and rejected when the title names a different dial color.
+ */
+export function referenceMatch(title:string,model:Pick<Model,'brand'|'reference'>&Partial<Pick<Model,'name'>>,details=''){
+ const base=baseReference(model.reference);
+ if(base===model.reference.trim()||wanted.test(title))return false;
+ return exactMatch(title,{...model,reference:base},details)&&!titleDialConflict(title,model.name);
+}
+export type MatchKind='exact'|'reference'|'similar';
+/** exact: complete reference; reference: base reference, variant not stated; similar: same model line (never priced). */
+export function classifyMatch(title:string,model:Pick<Model,'brand'|'reference'>&Partial<Pick<Model,'name'>>&{family?:string},details=''):MatchKind|null{
+ if(wanted.test(title))return null;
+ if(exactMatch(title,model,details))return 'exact';
+ if(referenceMatch(title,model,details))return 'reference';
+ return similarMatch(title,{brand:model.brand,name:model.name||'',family:model.family})?'similar':null;
 }
 /** Same brand and model line, without confirmation of the complete variant reference. Never used for prices. */
 export function similarMatch(title:string, model:Pick<Model,'brand'|'name'>&{family?:string}){
- const t=title.toLowerCase();if(!compact(t).includes(compact(model.brand))||excluded.test(title))return false;
+ const t=title.toLowerCase();if(!compact(t).includes(compact(model.brand))||partsListing(title))return false;
  const words=(model.name||'').toLowerCase().split(/[\s/]+/).filter(Boolean);const line=words[0]&&/^\d{2}(mm)?$/.test(words[1]||'')?[words[0],words[1].replace('mm','')]:[(model.family||words[0]||'').toLowerCase()];
  return line.every(w=>w&&new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`).test(t));
 }
 /** listedAt: when the seller posted or last edited the listing (observedAt stays the collection date). */
-export type LiveListing=Candidate&{match:'exact'|'similar';image?:string;listedAt?:string};
+export type LiveListing=Candidate&{match:MatchKind;image?:string;listedAt?:string;matchDetails?:string};
 function firstImage(v:any):string|undefined{const x=Array.isArray(v)?v[0]:v;const u=typeof x==='string'?x:x?.url;return typeof u==='string'&&u.startsWith('https://')?u:undefined;}
-export function parseToriListings(html:string,model:Model&{family?:string},now=new Date()):LiveListing[]{
+/** Nordic classifieds on the same "recommerce" platform: identical search URLs and structured data. */
+export const RECOMMERCE_SITES={
+ tori:{name:'Tori.fi',host:'www.tori.fi',country:'FI'},
+ finn:{name:'FINN.no',host:'www.finn.no',country:'NO'},
+ blocket:{name:'Blocket',host:'www.blocket.se',country:'SE'},
+ dba:{name:'DBA',host:'www.dba.dk',country:'DK'},
+} as const;
+export type RecommerceSite=keyof typeof RECOMMERCE_SITES;
+export function parseToriListings(html:string,model:Model&{family?:string},now=new Date(),site:RecommerceSite='tori'):LiveListing[]{
+ const {name,host,country}=RECOMMERCE_SITES[site];
  const script=html.match(/<script\b(?=[^>]*\bid=["']seoStructuredData["'])[^>]*>([\s\S]*?)<\/script>/i);
- if(!script)throw new CollectorError('layout_changed','Tori returned no recognized structured listing data. Nothing was imported.');
- if(!script[1].trim())return []; // Tori leaves the block empty when a search has no results.
- let page:any;try{page=JSON.parse(script[1]);}catch{throw new CollectorError('layout_changed','Tori structured data could not be parsed.');}
- if(!Array.isArray(page?.mainEntity?.itemListElement))throw new CollectorError('layout_changed','Tori listing format changed.');
+ if(!script)throw new CollectorError('layout_changed',`${name} returned no recognized structured listing data. Nothing was imported.`);
+ if(!script[1].trim())return []; // The block is empty when a search has no results.
+ let page:any;try{page=JSON.parse(script[1]);}catch{throw new CollectorError('layout_changed',`${name} structured data could not be parsed.`);}
+ if(!Array.isArray(page?.mainEntity?.itemListElement))throw new CollectorError('layout_changed',`${name} listing format changed.`);
  const result:LiveListing[]=[];
  for(const entry of page.mainEntity.itemListElement.slice(0,100)){
  const p=entry.item,o=p?.offers; if(!p||o?.availability!=='https://schema.org/InStock')continue;
- const match=exactMatch(p.name||'',model)?'exact':similarMatch(p.name||'',model)?'similar':null;if(!match)continue;
+ const match=classifyMatch(p.name||'',model);if(!match)continue;
  let link:URL;try{link=new URL(p.url);}catch{continue;}
- if(link.protocol!=='https:'||link.hostname!=='www.tori.fi'||!/^\/recommerce\/forsale\/item\/\d+$/.test(link.pathname))continue;
+ if(link.protocol!=='https:'||link.hostname!==host||!/^\/recommerce\/forsale\/item\/\d+$/.test(link.pathname))continue;
  const condition=o.itemCondition||p.itemCondition;
- const candidate=collectedPrice.safeParse({modelId:model.id,sourceId:'tori',country:'FI',currency:o.priceCurrency,price:Number(o.price),status:'asking',observedAt:now.toISOString().slice(0,10),condition:condition==='https://schema.org/UsedCondition'?'used':condition==='https://schema.org/NewCondition'?'new':'unknown',sellerType:'unknown',contents:'unknown',url:link.origin+link.pathname,title:p.name,collectedAt:now.toISOString()});
+ const candidate=collectedPrice.safeParse({modelId:model.id,sourceId:site,country,currency:o.priceCurrency,price:Number(o.price),status:soldWord.test(p.name||'')?'sold-asking':'asking',observedAt:now.toISOString().slice(0,10),condition:condition==='https://schema.org/UsedCondition'?'used':condition==='https://schema.org/NewCondition'?'new':'unknown',sellerType:'unknown',contents:'unknown',url:link.origin+link.pathname,title:p.name,collectedAt:now.toISOString()});
  if(candidate.success&&!result.some(r=>r.url===candidate.data.url))result.push({...candidate.data,match,image:firstImage(p.image)});
  }return result;
 }
@@ -77,7 +130,7 @@ export function parseRedditListings(body:any,model:Model&{family?:string}):LiveL
  for(const child of (body?.data?.children||[]).slice(0,100)){
   const p=child?.data;if(!p||typeof p.title!=='string')continue;
   if(!/\[\s*wts|\[\s*wtt/i.test(p.title))continue;
-  const match=exactMatch(p.title,model,typeof p.selftext==='string'?p.selftext.slice(0,3000):'')?'exact':similarMatch(p.title,model)?'similar':null;if(!match)continue;
+  const match=classifyMatch(p.title,model,typeof p.selftext==='string'?p.selftext.slice(0,3000):'');if(!match)continue;
   const priced=extractPrice(p.title)||extractPrice(typeof p.selftext==='string'?p.selftext.slice(0,3000):'');if(!priced)continue;
   if(typeof p.permalink!=='string'||!/^\/r\/watchexchange\/comments\/[a-z0-9]+\//i.test(p.permalink))continue;
   const created=new Date(Number(p.created_utc)*1000);if(!Number.isFinite(+created))continue;
@@ -87,7 +140,7 @@ export function parseRedditListings(body:any,model:Model&{family?:string}):LiveL
   if(c.success&&!result.some(r=>r.url===c.data.url))result.push({...c.data,match,image:firstImage(image),listedAt:c.data.observedAt});
  }return result;
 }
-const entities:Record<string,string>={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
+const entities:Record<string,string>={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',ldquo:'“',rdquo:'”',lsquo:'‘',rsquo:'’',ndash:'–',mdash:'—',hellip:'…',pound:'£',euro:'€',yen:'¥',deg:'°',eacute:'é',plusmn:'±',times:'×'};
 export function decodeEntities(text:string){return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,(m,e:string)=>e[0]==='#'?String.fromCodePoint(e[1]==='x'||e[1]==='X'?parseInt(e.slice(2),16):Number(e.slice(1))):entities[e.toLowerCase()]??m);}
 /** Reddit's public Atom search feed (no API key). It has no post body, so only titles with a price are used. */
 export function parseRedditRss(xml:string,model:Model&{family?:string}):LiveListing[]{
@@ -121,20 +174,21 @@ export function parseForumRss(xml:string,host='www.watchuseek.com'):ForumItem[]{
 export function matchForumItems(items:ForumItem[],model:Model&{family?:string},sourceId:string):LiveListing[]{
  const result:LiveListing[]=[];
  for(const it of items){
-  const match=exactMatch(it.title,model,it.text)?'exact':similarMatch(it.title,model)?'similar':null;if(!match)continue;
+  const match=classifyMatch(it.title,model,it.text);if(!match)continue;
   const priced=extractPrice(it.title)||extractPrice(it.text);if(!priced)continue;
-  const sold=/\bsold\b/i.test(it.title);
+  const sold=soldWord.test(it.title);
   const c=collectedPrice.safeParse({modelId:model.id,sourceId,country:/\b(conus|usa|u\.s\.)\b/i.test(`${it.title} ${it.text}`)?'US':'UNKNOWN',currency:priced.currency,price:priced.price,status:sold?'sold-asking':'asking',observedAt:it.date,condition:/\b(new|unworn|bnib)\b/i.test(it.title)?'new':'unknown',sellerType:/\b(dealer|sponsor)\b/i.test(it.text)?'dealer':'private',contents:'unknown',url:it.url,title:it.title,collectedAt:new Date().toISOString()});
   if(c.success&&!result.some(r=>r.url===c.data.url))result.push({...c.data,match,listedAt:it.date});
  }return result;
 }
 /** Threads naming this exact reference whose feed excerpt has no price (shown as links only). */
 export function forumItemsNeedingPost(items:ForumItem[],model:Model):ForumItem[]{
- return items.filter(it=>exactMatch(it.title,model,it.text)&&!extractPrice(it.title)&&!extractPrice(it.text));
+ return items.filter(it=>(exactMatch(it.title,model,it.text)||referenceMatch(it.title,model,it.text))&&!extractPrice(it.title)&&!extractPrice(it.text));
 }
 export async function safeFetch(url:string,init:RequestInit={},fetcher:typeof fetch=fetch){
  // Only fixed provider URLs reach this helper. User marketplace URLs are never fetched.
  const response=await fetcher(url,{...init,redirect:'manual',signal:AbortSignal.timeout(15000)});
+ if([401,403,429].includes(response.status))throw new CollectorError('blocked',`Source returned HTTP ${response.status} (access blocked or rate-limited). No data was imported.`);
  if(!response.ok)throw new CollectorError('upstream_error',`Source returned HTTP ${response.status}. No data was imported.`);
  if(Number(response.headers.get('content-length'))>3_000_000)throw new CollectorError('too_large','Source response exceeds the collection limit.');
  const reader=response.body?.getReader();if(!reader)return '';let size=0;const decoder=new TextDecoder();let body='';
@@ -142,7 +196,7 @@ export async function safeFetch(url:string,init:RequestInit={},fetcher:typeof fe
 }
 export function parseEbay(body:any,model:Model,now=new Date()):Candidate[]{return parseEbayListings(body,model,now).filter(l=>l.match==='exact').map(({match:_m,image:_i,...c})=>c);}
 export function parseEbayListings(body:any,model:Model&{family?:string},now=new Date()):LiveListing[]{const result:LiveListing[]=[];for(const p of (body.itemSummaries||[]).slice(0,50)){
- const match=exactMatch(p.title||'',model)?'exact':similarMatch(p.title||'',model)?'similar':null;if(!match)continue;let link:URL;try{link=new URL(p.itemWebUrl);}catch{continue;}if(link.protocol!=='https:'||!/(^|\.)ebay\.(com|de|co\.uk|fr|it|es)$/.test(link.hostname))continue;
+ const match=classifyMatch(p.title||'',model);if(!match)continue;let link:URL;try{link=new URL(p.itemWebUrl);}catch{continue;}if(link.protocol!=='https:'||!/(^|\.)ebay\.(com|de|co\.uk|fr|it|es)$/.test(link.hostname))continue;
  const c=collectedPrice.safeParse({modelId:model.id,sourceId:'ebay',country:p.itemLocation?.country in countries?p.itemLocation.country:'UNKNOWN',currency:p.price?.currency,price:Number(p.price?.value),status:'asking',observedAt:now.toISOString().slice(0,10),condition:p.conditionId==='1000'?'new':Number(p.conditionId)>=3000?'used':'unknown',sellerType:p.seller?.sellerAccountType==='BUSINESS'?'dealer':p.seller?.sellerAccountType==='INDIVIDUAL'?'private':'unknown',contents:'unknown',url:link.origin+link.pathname,title:p.title,collectedAt:now.toISOString()});if(c.success&&!result.some(r=>r.url===c.data.url))result.push({...c.data,match,image:firstImage(p.image?.imageUrl||p.thumbnailImages),listedAt:/^\d{4}-\d{2}-\d{2}/.test(p.itemCreationDate||'')?p.itemCreationDate.slice(0,10):undefined});
  }return result;}
 export async function collectPrices(provider:string,model:Model,secrets:{EBAY_CLIENT_ID?:string;EBAY_CLIENT_SECRET?:string},marketplace='EBAY_DE'){
@@ -162,28 +216,80 @@ export function parseToriItemDate(html:string):string|undefined{
  const fi=html.match(/Viimeksi muokattu(?:<!-- -->)?:\s*(?:<!-- -->)?(\d{1,2})\.(\d{1,2})\.(\d{4})/);
  return fi?`${fi[3]}-${fi[2].padStart(2,'0')}-${fi[1].padStart(2,'0')}`:undefined;
 }
-const toriDates=new Map<string,{at:number;date?:string}>();
-async function addToriDates(items:LiveListing[]){
- const queue=items.filter(l=>l.sourceId==='tori'&&!l.listedAt).slice(0,24);
+const itemDates=new Map<string,{at:number;date?:string}>();
+/** Recommerce search pages have no dates; item pages embed the last-edited time. Bounded to 24 pages per refresh. */
+async function addItemDates(items:LiveListing[]){
+ const queue=items.filter(l=>l.sourceId in RECOMMERCE_SITES&&!l.listedAt&&l.match!=='similar').slice(0,24);
  const worker=async()=>{for(let l=queue.shift();l;l=queue.shift()){
-  const hit=toriDates.get(l.url);if(hit&&Date.now()-hit.at<24*3600_000){l.listedAt=hit.date;continue;}
-  try{const date=parseToriItemDate(await safeFetch(l.url,{headers:toriHeaders}));toriDates.set(l.url,{at:Date.now(),date});l.listedAt=date;}catch{/* keep undated */}
+  const hit=itemDates.get(l.url);if(hit&&Date.now()-hit.at<24*3600_000){l.listedAt=hit.date;continue;}
+  try{const date=parseToriItemDate(await safeFetch(l.url,{headers:recommerceHeaders}));itemDates.set(l.url,{at:Date.now(),date});l.listedAt=date;}catch{/* keep undated */}
  }};
  await Promise.all([worker(),worker(),worker(),worker()]);
 }
 export type SourceStatus={id:string;name:string;status:'ok'|'error'|'credentials_required'|'blocked';count:number;message?:string;searchUrl?:string};
+/** A bot wall or rate limit is a persistent condition, not a failed refresh: it must not force constant re-collection. */
+export const failureStatus=(e:unknown):'blocked'|'error'=>e instanceof CollectorError&&e.code==='blocked'?'blocked':'error';
 export const WATCHUSEEK_FEED='https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/index.rss';
-const toriHeaders={'User-Agent':'WatchProject/1.0 (personal watch price tracker)','Accept':'text/html'};
-async function toriSearch(q:string,model:Model&{family?:string}){const url=new URL('https://www.tori.fi/recommerce/forsale/search');url.searchParams.set('q',q);return parseToriListings(await safeFetch(url.href,{headers:toriHeaders}),model);}
-/** Live, unsaved asking prices for the detail page: exact-reference matches plus clearly labelled similar listings. */
+const recommerceHeaders={'User-Agent':'WatchProject/1.0 (personal watch price tracker)','Accept':'text/html'};
+const recommerceSearchUrl=(site:RecommerceSite,q:string)=>`https://${RECOMMERCE_SITES[site].host}/recommerce/forsale/search?${new URLSearchParams({q})}`;
+async function recommerceSearch(site:RecommerceSite,q:string,model:Model&{family?:string}){return parseToriListings(await safeFetch(recommerceSearchUrl(site,q),{headers:recommerceHeaders}),model,new Date(),site);}
+
+/** WatchRecon indexes the sale sections of ~15 watch forums (r/Watchexchange, r/Watch_Swap, TimeZone, ...) with prices. */
+const watchReconSources:[RegExp,string][]=[[/^r\/watch_?exchange$/i,'reddit'],[/^r\/watch_swap$/i,'reddit'],[/^timezone$/i,'timezone'],[/^watchuseek$/i,'watchuseek']];
+const symbolCurrency:Record<string,string>={'$':'USD','£':'GBP','€':'EUR','¥':'JPY','chf':'CHF','c$':'CAD'};
+/** "5 days ago" / "14 hours ago" relative to now. */
+export function relativeDate(text:string,now=new Date()){
+ const m=text.trim().match(/^(\d+|an?|one)\s+(minute|hour|day|week|month|year)s?\s+ago$/i);if(!m)return undefined;
+ const n=/^\d+$/.test(m[1])?Number(m[1]):1;const days={minute:1/1440,hour:1/24,day:1,week:7,month:30,year:365}[m[2].toLowerCase() as 'day'];
+ return new Date(+now-n*days*86_400_000).toISOString().slice(0,10);
+}
+export function parseWatchRecon(html:string,model:Model&{family?:string},now=new Date()):LiveListing[]{
+ if(!/class="queryResultContainer"/.test(html))throw new CollectorError('layout_changed','WatchRecon did not return its search results.');
+ const result:LiveListing[]=[];
+ for(const card of html.split(/<div class="galleryItemContainer\b/).slice(1,101)){
+  const link=card.match(/<a href="([^"]+)" class="listingLink"[^>]*title="([^"]*)"/);if(!link)continue;
+  // The brand sits in its own field; titles often omit it ("Datejust 36 ... Ref. 126200").
+  const title=decodeEntities(decodeEntities(link[2])).trim(),brand=decodeEntities(card.match(/class="brandInfo"><a[^>]*>([^<]*)</)?.[1]||'');
+  const match=classifyMatch(title,model,brand);if(!match)continue;
+  let url:URL;try{url=new URL(decodeEntities(link[1]));}catch{continue;}
+  if(!/^https?:$/.test(url.protocol))continue;url.protocol='https:';
+  const priceText=decodeEntities(card.match(/class="priceInfo">([^<]*)</)?.[1]||'').replace(/\s/g,'');
+  const pm=priceText.match(/^(\$|£|€|¥|CHF|C\$)([\d,]+(?:\.\d{1,2})?)$/i);if(!pm)continue;
+  const tags=[...card.matchAll(/class="tag">([^<]*)</g)].map(t=>decodeEntities(t[1]).toLowerCase());
+  if(tags.some(t=>/\b(wtb|want to buy)\b/.test(t)))continue;
+  const sourceText=decodeEntities(card.match(/class="sourceInfo">on&nbsp;([^<]*)</)?.[1]||'').trim();
+  const sourceId=watchReconSources.find(([re])=>re.test(sourceText))?.[1]||'watchrecon';
+  const date=relativeDate(decodeEntities(card.match(/class="postDateInfo">([^<]*)</)?.[1]||''),now)||now.toISOString().slice(0,10);
+  const sold=tags.some(t=>/\b(sold|traded)\b/.test(t))||soldWord.test(title);
+  const location=decodeEntities(card.match(/class="locationInfo">([^<]*)</)?.[1]||'').trim();
+  const country=tags.includes('conus')||/\b(usa|united states|conus)\b/i.test(location)?'US':/\b(uk|united kingdom|england)\b/i.test(location)?'GB':'UNKNOWN';
+  const image=card.match(/<img class="thumb" src="(image\.php\?[^"]+)"/)?.[1];
+  const c=collectedPrice.safeParse({modelId:model.id,sourceId,country,currency:symbolCurrency[pm[1].toLowerCase()],price:Number(pm[2].replaceAll(',','')),status:sold?'sold-asking':'asking',observedAt:date,condition:tags.some(t=>/\b(new|unworn|bnib)\b/.test(t))?'new':tags.some(t=>/mint|used|pre-?owned/.test(t))?'used':'unknown',sellerType:'private',contents:'unknown',url:url.href,title:title.slice(0,500),collectedAt:now.toISOString()});
+  if(c.success&&!result.some(r=>r.url===c.data.url))result.push({...c.data,match,listedAt:date,image:image?`https://www.watchrecon.com/${decodeEntities(image)}`:undefined});
+ }
+ return result;
+}
+export const watchReconSearchUrl=(q:string)=>`https://www.watchrecon.com/?${new URLSearchParams({query:q})}`;
+
+/** Live, unsaved asking prices for the detail page: exact and base-reference matches plus clearly labelled similar listings. */
 export async function fetchLiveListings(model:Model&{family?:string},secrets:{EBAY_CLIENT_ID?:string;EBAY_CLIENT_SECRET?:string;EBAY_MARKETPLACE?:string;EBAY_ENVIRONMENT?:string;EBAY_SANDBOX_CLIENT_ID?:string;EBAY_SANDBOX_CLIENT_SECRET?:string;REDDIT_CLIENT_ID?:string;REDDIT_CLIENT_SECRET?:string},marketplace=secrets.EBAY_MARKETPLACE||'EBAY_DE',opts:{skipReddit?:string}={}){
  const listings:LiveListing[]=[];const sources:SourceStatus[]=[];
- const add=(xs:LiveListing[])=>{for(const x of xs){const i=listings.findIndex(l=>l.url===x.url);if(i<0)listings.push(x);else if(x.match==='exact')listings[i]=x;}};
+ const rank={exact:0,reference:1,similar:2};
+ const add=(xs:LiveListing[])=>{for(const x of xs){const i=listings.findIndex(l=>l.url===x.url);if(i<0)listings.push(x);else if(rank[x.match]<rank[listings[i].match])listings[i]=x;}};
  const words=(model.name||'').split(/[\s/]+/).filter(Boolean);const line=words[0]&&/^\d{2}(mm)?$/i.test(words[1]||'')?`${words[0]} ${words[1]}`:(model.family||words[0]||'');
- {const before=listings.length;const errors:string[]=[];
-  for(const query of [`${model.brand} ${baseReference(model.reference)}`,line?`${model.brand} ${line}`:''].filter(Boolean)){try{add(await toriSearch(query,model));}catch(e){errors.push(e instanceof Error?e.message:'Tori request failed');}}
-  await addToriDates(listings);
-  sources.push(errors.length&&listings.length===before?{id:'tori',name:'Tori.fi',status:'error',count:0,message:errors[0]}:{id:'tori',name:'Tori.fi',status:'ok',count:listings.length-before});}
+ const q=`${model.brand} ${baseReference(model.reference)}`;
+ const queries=[q,line?`${model.brand} ${line}`:''].filter(Boolean);
+ // Nordic classifieds run in parallel; each site is reported on its own.
+ const nordic=await Promise.all((Object.keys(RECOMMERCE_SITES) as RecommerceSite[]).map(async(site)=>{
+  const found:LiveListing[]=[];const errors:unknown[]=[];
+  for(const query of queries){try{found.push(...await recommerceSearch(site,query,model));}catch(e){errors.push(e);}}
+  return {site,found,errors};
+ }));
+ for(const {site,found,errors} of nordic){
+  const before=listings.length;add(found);const {name}=RECOMMERCE_SITES[site];
+  sources.push(errors.length&&!found.length?{id:site,name,status:failureStatus(errors[0]),count:0,message:errors[0] instanceof Error?errors[0].message:`${name} request failed`,searchUrl:recommerceSearchUrl(site,q)}:{id:site,name,status:'ok',count:listings.length-before,searchUrl:recommerceSearchUrl(site,q)});
+ }
+ await addItemDates(listings);
  const sandbox=secrets.EBAY_ENVIRONMENT==='sandbox';
  const ebayId=sandbox?secrets.EBAY_SANDBOX_CLIENT_ID:secrets.EBAY_CLIENT_ID,ebaySecret=sandbox?secrets.EBAY_SANDBOX_CLIENT_SECRET:secrets.EBAY_CLIENT_SECRET,ebayHost=sandbox?'api.sandbox.ebay.com':'api.ebay.com';
  if(ebayId&&ebaySecret){try{const before=listings.length;const auth=JSON.parse(await safeFetch(`https://${ebayHost}/identity/v1/oauth2/token`,{method:'POST',headers:{Authorization:`Basic ${btoa(ebayId+':'+ebaySecret)}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'}));
@@ -192,20 +298,21 @@ export async function fetchLiveListings(model:Model&{family?:string},secrets:{EB
   // Sandbox listings are eBay's made-up test data: check the connection, never use them as prices.
   if(sandbox)sources.push({id:'ebay',name:'eBay (sandbox)',status:'ok',count:0,message:`Sandbox connection works (${found.length} test listings, not used as prices). Set EBAY_ENVIRONMENT=production once the production keyset is enabled.`});
   else{add(found);sources.push({id:'ebay',name:'eBay',status:'ok',count:listings.length-before});}}
-  catch(e){const msg=e instanceof Error?e.message:'eBay request failed';sources.push({id:'ebay',name:sandbox?'eBay (sandbox)':'eBay',status:'error',count:0,message:/HTTP 401/.test(msg)?`eBay rejected the ${sandbox?'sandbox':'production'} keys (invalid_client). A new production keyset stays disabled until the Marketplace Account Deletion step is done on developer.ebay.com; also check the Cert ID was copied in full.`:msg});}}
+  catch(e){const msg=e instanceof Error?e.message:'eBay request failed';sources.push({id:'ebay',name:sandbox?'eBay (sandbox)':'eBay',status:/HTTP 401/.test(msg)?'credentials_required':'error',count:0,message:/HTTP 401/.test(msg)?`eBay rejected the ${sandbox?'sandbox':'production'} keys (invalid_client). A new production keyset stays disabled until the Marketplace Account Deletion step is done on developer.ebay.com; also check the Cert ID was copied in full.`:msg});}}
  else sources.push({id:'ebay',name:'eBay',status:'credentials_required',count:0,message:'Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET on the server to include eBay.'});
- const q=`${model.brand} ${baseReference(model.reference)}`;
  const redditSearch=`https://www.reddit.com/r/Watchexchange/search/?${new URLSearchParams({q,restrict_sr:'1',sort:'new'})}`;
- if(opts.skipReddit)sources.push({id:'reddit',name:'r/Watchexchange',status:'error',count:0,message:opts.skipReddit,searchUrl:redditSearch});
+ if(opts.skipReddit)sources.push({id:'reddit',name:'r/Watchexchange',status:'blocked',count:0,message:opts.skipReddit,searchUrl:redditSearch});
  else if(secrets.REDDIT_CLIENT_ID&&secrets.REDDIT_CLIENT_SECRET){try{const before=listings.length;const ua='web:watchledger:1.0 (personal watch price tracker)';
   const auth=JSON.parse(await safeFetch('https://www.reddit.com/api/v1/access_token',{method:'POST',headers:{Authorization:`Basic ${btoa(secrets.REDDIT_CLIENT_ID+':'+secrets.REDDIT_CLIENT_SECRET)}`,'Content-Type':'application/x-www-form-urlencoded','User-Agent':ua},body:'grant_type=client_credentials'}));
   if(typeof auth.access_token!=='string')throw new CollectorError('credentials_required','Reddit did not return an application token.');
   for(const query of [q,line?`${model.brand} ${line}`:''].filter(Boolean)){const url=new URL('https://oauth.reddit.com/r/Watchexchange/search');url.search=new URLSearchParams({q:query,restrict_sr:'1',sort:'new',t:'year',limit:'100',raw_json:'1'}).toString();add(parseRedditListings(JSON.parse(await safeFetch(url.href,{headers:{Authorization:`Bearer ${auth.access_token}`,'User-Agent':ua}})),model));}
   sources.push({id:'reddit',name:'r/Watchexchange',status:'ok',count:listings.length-before,searchUrl:redditSearch});}
-  catch(e){sources.push({id:'reddit',name:'r/Watchexchange',status:'error',count:0,message:e instanceof Error?e.message:'Reddit request failed',searchUrl:redditSearch});}}
- else{try{const before=listings.length;const url=new URL('https://www.reddit.com/r/Watchexchange/search.rss');url.search=new URLSearchParams({q,restrict_sr:'1',sort:'new',t:'year'}).toString();
-  add(parseRedditRss(await safeFetch(url.href,{headers:{'User-Agent':'WatchLedger/1.0 (personal watch price tracker)',Accept:'application/atom+xml'}}),model));sources.push({id:'reddit',name:'r/Watchexchange',status:'ok',count:listings.length-before,searchUrl:redditSearch,message:'Public RSS search: posts are used when the title states a price.'});}
-  catch(e){const msg=e instanceof Error?e.message:'Reddit request failed';sources.push({id:'reddit',name:'r/Watchexchange',status:'error',count:0,message:/429/.test(msg)?'Reddit is rate-limiting requests right now. Try Refresh in a minute.':msg,searchUrl:redditSearch});}}
+  catch(e){sources.push({id:'reddit',name:'r/Watchexchange',status:failureStatus(e),count:0,message:e instanceof Error?e.message:'Reddit request failed',searchUrl:redditSearch});}}
+ else sources.push({id:'reddit',name:'r/Watchexchange',status:'blocked',count:0,message:'Reddit closed its public feeds in November 2026 and no longer issues new API keys. r/Watchexchange posts arrive through WatchRecon instead.',searchUrl:redditSearch});
+ {const before=listings.length;
+  try{add(parseWatchRecon(await safeFetch(watchReconSearchUrl(q),{headers:{'User-Agent':'WatchLedger/1.0 (personal watch price tracker)',Accept:'text/html'}}),model));
+   sources.push({id:'watchrecon',name:'WatchRecon (sale forums)',status:'ok',count:listings.length-before,searchUrl:watchReconSearchUrl(q),message:'Sale posts from r/Watchexchange, r/Watch_Swap, TimeZone and other forums, newest ~2 weeks per check. Posts are archived, so history grows over time.'});}
+  catch(e){sources.push({id:'watchrecon',name:'WatchRecon (sale forums)',status:failureStatus(e),count:0,message:e instanceof Error?e.message:'WatchRecon request failed',searchUrl:watchReconSearchUrl(q)});}}
  sources.push({id:'chrono24',name:'Chrono24',status:'blocked',count:0,message:'Chrono24 blocks automated access. Open its search and record prices you see.',searchUrl:`https://www.chrono24.com/search/index.htm?${new URLSearchParams({query:q})}`});
  return {listings,sources};
 }

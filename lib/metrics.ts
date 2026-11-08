@@ -18,6 +18,34 @@ export function median(xs: number[]) {
   const s = [...xs].sort((a, b) => a - b), m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
+/**
+ * Drops prices far from the pack: deposits, "partial trade" figures, parts sold under the reference,
+ * mistyped prices. Uses the median absolute deviation, which a few bad prices cannot drag along.
+ * Needs at least 5 prices; with fewer there is no reliable "pack" to compare against.
+ */
+export function withoutOutliers<T>(items: T[], price: (x: T) => number, k = 4): { kept: T[]; dropped: T[] } {
+  if (items.length < 5) return { kept: items, dropped: [] };
+  const m = median(items.map(price))!;
+  // Floor the spread at 5% of the median so a run of identical prices does not reject every other value.
+  const mad = Math.max(median(items.map((x) => Math.abs(price(x) - m)))!, m * 0.05);
+  const kept: T[] = [], dropped: T[] = [];
+  for (const x of items) (Math.abs(price(x) - m) / (1.4826 * mad) > k || price(x) < m * 0.4 || price(x) > m * 2.5 ? dropped : kept).push(x);
+  return { kept, dropped };
+}
+
+/** The same watch cross-posted (Reddit + forum + classifieds) or re-posted is one observation, not several. */
+export function dedupeCrossPosts<T extends { title?: string; price: number; date: string; status?: string }>(items: T[], windowDays = 21): T[] {
+  const key = (t = '') => t.toLowerCase().replace(/\[[^\]]*\]/g, '').replace(/^\W*(?:wts|wtt|fs|fsot|for sale|myydään|selges|säljes|sælges|verkaufe)\b\W*/, '').replace(/[^a-z0-9]/g, '').slice(0, 48);
+  const out: T[] = [];
+  for (const x of [...items].sort((a, b) => b.date.localeCompare(a.date))) {
+    const k = key(x.title);
+    // Separate auction lots can have the same model, amount and date; their URLs were already deduplicated upstream.
+    if (x.status !== 'confirmed-sale' && k.length >= 12 && out.some((y) => y.status !== 'confirmed-sale' && key(y.title) === k && Math.abs(y.price - x.price) <= x.price * 0.02 && Math.abs(+new Date(y.date) - +new Date(x.date)) <= windowDays * DAY)) continue;
+    out.push(x);
+  }
+  return out;
+}
+
 function weekStart(date: string) {
   const d = new Date(date + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
@@ -61,7 +89,11 @@ export function computeMetrics(all: MetricPrice[], { retail = null as number | n
     const vals = weeks.map((w) => w.value), mean = vals.reduce((a, b) => a + b, 0) / vals.length;
     volatility = Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / (vals.length - 1)) / mean;
   }
-  const change1y = weeks.length >= 2 ? weeks[weeks.length - 1].value / weeks[0].value - 1 : null;
+  // 1-year change: median of the first quarter of the year vs the latest quarter, each with at least 3 prices.
+  // Comparing single first/last weeks swung with whichever one listing happened to be posted that week.
+  const quarterAgo = new Date(now - 90 * DAY).toISOString().slice(0, 10), firstQuarterEnd = new Date(now - 275 * DAY).toISOString().slice(0, 10);
+  const early = year.filter((p) => p.date < firstQuarterEnd).map((p) => p.price), late = year.filter((p) => p.date >= quarterAgo).map((p) => p.price);
+  const change1y = early.length >= 3 && late.length >= 3 ? median(late)! / median(early)! - 1 : null;
   const today = new Date(now).toISOString().slice(0, 10);
   const ages = all.filter((p) => p.active && p.listedAt && p.listedAt <= today).map((p) => Math.round((now - +new Date(p.listedAt + 'T12:00:00Z')) / DAY));
   const used = groupMedian(year, (p) => p.condition === 'used');

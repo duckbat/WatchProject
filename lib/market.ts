@@ -8,10 +8,21 @@ export const catalog = [
 ];
 export const defaultSources = [
  {id:"phillips",name:"Phillips auctions",url:"https://www.phillips.com",country:"",mode:"Automatic auction results"},
+ {id:"antiquorum",name:"Antiquorum",url:"https://catalog.antiquorum.swiss",country:"",mode:"Automatic reported sales"},
+ {id:"christies",name:"Christie’s",url:"https://onlineonly.christies.com",country:"",mode:"Automatic sales · selected catalogues"},
+ {id:"bukowskis",name:"Bukowskis",url:"https://www.bukowskis.com",country:"",mode:"Not connected · access challenge"},
+ {id:"kaplans",name:"Kaplans",url:"https://www.kaplans.se",country:"",mode:"Not connected · access blocked"},
+ {id:"cheffins",name:"Cheffins",url:"https://fineart.cheffins.co.uk",country:"",mode:"Not connected · access challenge"},
+ {id:"bonhams",name:"Bonhams",url:"https://www.bonhams.com",country:"",mode:"Not connected · collector unverified"},
  {id:"chrono24",name:"Chrono24",url:"https://www.chrono24.com",country:"",mode:"Manual observations"},
  {id:"ebay",name:"eBay",url:"https://www.ebay.com",country:"",mode:"Manual observations"},
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},
- {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Manual observations"},
+ {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Automatic asking prices"},
+ {id:"finn",name:"FINN.no",url:"https://www.finn.no",country:"NO",mode:"Automatic asking prices"},
+ {id:"blocket",name:"Blocket",url:"https://www.blocket.se",country:"SE",mode:"Automatic asking prices"},
+ {id:"dba",name:"DBA",url:"https://www.dba.dk",country:"DK",mode:"Automatic asking prices"},
+ {id:"watchrecon",name:"WatchRecon (sale forums)",url:"https://www.watchrecon.com",country:"",mode:"Automatic forum asking prices"},
+ {id:"timezone",name:"TimeZone",url:"https://forums.timezone.com",country:"",mode:"Via WatchRecon"},
  {id:"facebook",name:"Facebook groups",url:"https://www.facebook.com/groups/",country:"",mode:"Manual observations"},
  {id:"fb-1424920254386825",name:"Facebook watch group",url:"https://www.facebook.com/groups/1424920254386825/",country:"",mode:"Manual observations"},
  {id:"watchuseek",name:"WatchUSeek",url:"https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/",country:"",mode:"Manual observations"},
@@ -22,8 +33,8 @@ export type Source = typeof defaultSources[number];
 export type Observation = {modelId:string;sourceId:string;country:string;currency:string;price:number;status:string;observedAt:string;condition:string;sellerType:string;contents:string;url:string};
 export type Owned = {modelId:string;cost:number;currency:string;purchaseDate:string};
 export type Entry = {id:string;kind:string;data: any};
-export const countries: Record<string,string> = {FI:"Finland",DE:"Germany",FR:"France",IT:"Italy",ES:"Spain",NL:"Netherlands",SE:"Sweden",DK:"Denmark",AT:"Austria",BE:"Belgium",IE:"Ireland",PT:"Portugal",PL:"Poland",CZ:"Czechia",EE:"Estonia",LV:"Latvia",LT:"Lithuania",LU:"Luxembourg",MT:"Malta",CY:"Cyprus",GR:"Greece",HR:"Croatia",SI:"Slovenia",SK:"Slovakia",HU:"Hungary",RO:"Romania",BG:"Bulgaria",US:"United States",GB:"United Kingdom",CH:"Switzerland",JP:"Japan",CA:"Canada",AU:"Australia",UNKNOWN:"Unknown"};
-export const currencies = ['EUR','USD','GBP','CHF','JPY','CNY','HKD','SGD','KRW','TWD','INR','AED','THB','MYR','IDR','VND','PHP'] as const;
+export const countries: Record<string,string> = {FI:"Finland",DE:"Germany",FR:"France",IT:"Italy",ES:"Spain",NL:"Netherlands",SE:"Sweden",DK:"Denmark",AT:"Austria",BE:"Belgium",IE:"Ireland",PT:"Portugal",PL:"Poland",CZ:"Czechia",EE:"Estonia",LV:"Latvia",LT:"Lithuania",LU:"Luxembourg",MT:"Malta",CY:"Cyprus",GR:"Greece",HR:"Croatia",SI:"Slovenia",SK:"Slovakia",HU:"Hungary",RO:"Romania",BG:"Bulgaria",US:"United States",GB:"United Kingdom",CH:"Switzerland",JP:"Japan",CA:"Canada",AU:"Australia",NO:"Norway",UNKNOWN:"Unknown"};
+export const currencies = ['EUR','USD','GBP','CHF','NOK','SEK','DKK','JPY','CNY','HKD','SGD','KRW','TWD','INR','AED','THB','MYR','IDR','VND','PHP'] as const;
 export const asia = new Set(['AF','AM','AZ','BH','BD','BT','BN','KH','CN','CY','GE','HK','IN','ID','IR','IQ','IL','JP','JO','KZ','KW','KG','LA','LB','MO','MY','MV','MN','MM','NP','KP','OM','PK','PS','PH','QA','SA','SG','KR','LK','SY','TW','TJ','TH','TL','TR','TM','AE','UZ','VN','YE']);
 Object.assign(countries,{AF:'Afghanistan',AM:'Armenia',AZ:'Azerbaijan',BH:'Bahrain',BD:'Bangladesh',BT:'Bhutan',BN:'Brunei',KH:'Cambodia',CN:'China',GE:'Georgia',HK:'Hong Kong',IN:'India',ID:'Indonesia',IR:'Iran',IQ:'Iraq',IL:'Israel',JO:'Jordan',KZ:'Kazakhstan',KW:'Kuwait',KG:'Kyrgyzstan',LA:'Laos',LB:'Lebanon',MO:'Macao',MY:'Malaysia',MV:'Maldives',MN:'Mongolia',MM:'Myanmar',NP:'Nepal',KP:'North Korea',OM:'Oman',PK:'Pakistan',PS:'Palestine',PH:'Philippines',QA:'Qatar',SA:'Saudi Arabia',SG:'Singapore',KR:'South Korea',LK:'Sri Lanka',SY:'Syria',TW:'Taiwan',TJ:'Tajikistan',TH:'Thailand',TL:'Timor-Leste',TR:'Türkiye',TM:'Turkmenistan',AE:'United Arab Emirates',UZ:'Uzbekistan',VN:'Vietnam',YE:'Yemen'});
 export const eu = new Set(["FI","DE","FR","IT","ES","NL","SE","DK","AT","BE","IE","PT","PL","CZ","EE","LV","LT","LU","MT","CY","GR","HR","SI","SK","HU","RO","BG"]);

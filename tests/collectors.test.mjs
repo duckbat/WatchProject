@@ -62,7 +62,7 @@ console.log('Finnish/Facebook price formats passed.');
 const {parseForumRss,matchForumItems}=await import('../.sites-runtime/test-modules/collectors.mjs');
 const forum=parseForumRss(await readFile('tests/fixtures/watchuseek-sample.rss','utf8'));
 assert.equal(forum.length,3);assert.equal(forum[0].id,'5700001');assert.equal(forum[0].date,'2026-11-07');assert(forum[0].text.includes('$8,750'));
-const wusDj=matchForumItems(forum,dj,'watchuseek');assert.equal(wusDj.length,1);assert.equal(wusDj[0].price,8750);assert.equal(wusDj[0].country,'US');assert.equal(wusDj[0].listedAt,'2026-11-07');assert.equal(wusDj[0].match,'similar');
+const wusDj=matchForumItems(forum,dj,'watchuseek');assert.equal(wusDj.length,1);assert.equal(wusDj[0].price,8750);assert.equal(wusDj[0].country,'US');assert.equal(wusDj[0].listedAt,'2026-11-07');assert.equal(wusDj[0].match,'reference');
 const bb={id:'bb',brand:'Tudor',name:'Black Bay Fifty-Eight',reference:'79030N',family:'Black Bay'};
 const wusBb=matchForumItems(forum,bb,'watchuseek');assert.equal(wusBb[0].status,'sold-asking');assert.equal(wusBb[0].price,3300);
 assert.throws(()=>parseForumRss('<html>blocked</html>'),/RSS/);
@@ -101,3 +101,47 @@ assert.equal(withBracelet[0].match,'exact');
 
 assert(!exactMatch('Mido M12345',{brand:'Mido',reference:'12345'}));
 assert(exactMatch('Mido M12345',{brand:'Mido',reference:'M12345'}));
+
+// Base-reference listings: sellers rarely write Rolex/Tudor variant suffixes.
+const {classifyMatch,referenceMatch,parseToriListings,parseWatchRecon,relativeDate,failureStatus,CollectorError}=await import('../.sites-runtime/test-modules/collectors.mjs');
+const silverJub={id:'sj',brand:'Rolex',name:'Datejust 36 Stainless Steel / Domed / Silver / Jubilee',family:'Datejust 36',reference:'126200-0001'};
+assert.equal(classifyMatch('Rolex Datejust 36 126200-0001 Jubilee',silverJub),'exact');
+assert.equal(classifyMatch('Rolex 36mm datejust Ref.126200',silverJub),'reference');
+assert.equal(classifyMatch('Rolex Datejust 36 silver 126200 2024',silverJub),'reference');
+assert.equal(classifyMatch('Rolex Datejust 36 126200 Green Ombré 2026 NEW',silverJub),'similar'); // different dial named
+assert.equal(classifyMatch('2022 Rolex Datejust 36 126200 Wimbledon',silverJub),'similar'); // nickname for slate
+assert.equal(classifyMatch('Rolex Datejust 36 126200 with black box and papers',silverJub),'reference'); // box color is not the dial
+assert.equal(classifyMatch('WTB: Rolex Datejust 36 126200',silverJub),null);
+assert.equal(classifyMatch('Rolex Datejust 36 126200 Ombre Fullset 2026',silverJub),'similar'); // dial style the variant lacks
+assert.equal(classifyMatch('Rolex Datejust 36 126200 Ombré',{...silverJub,reference:'126200-0026',name:'Datejust 36 Stainless Steel - Domed / Green Ombré / Jubilee'}),'reference');
+assert.equal(classifyMatch('Rolex Datejust 72800 lenke til Rolex 126234 / 126200',silverJub),null);
+assert.equal(classifyMatch('Rolex Datejust 36 1262000',silverJub),'similar');
+assert(!referenceMatch('Seiko Prospex SPB143',model)); // no suffix: exact matching already covers it
+// FINN, Blocket and DBA share Tori's platform and structured data.
+const nordic=(host,currency,name='Rolex Datejust 36 126200 årstall 2022')=>html([{name,url:`https://${host}/recommerce/forsale/item/450134382`,offers:{price:'95000',priceCurrency:currency,availability:'https://schema.org/InStock'}}]);
+const finn=parseToriListings(nordic('www.finn.no','NOK'),silverJub,now,'finn');
+assert.equal(finn.length,1);assert.equal(finn[0].sourceId,'finn');assert.equal(finn[0].country,'NO');assert.equal(finn[0].currency,'NOK');assert.equal(finn[0].match,'reference');
+assert.equal(parseToriListings(nordic('www.finn.no','NOK'),silverJub,now,'blocket').length,0); // host must belong to the site
+assert.equal(parseToriListings(nordic('www.blocket.se','SEK','Solgt Rolex Datejust 36/126200/2024'),silverJub,now,'blocket')[0].status,'sold-asking');
+assert.equal(parseToriListings(nordic('www.dba.dk','DKK'),silverJub,now,'dba')[0].country,'DK');
+const {partsListing}=await import('../.sites-runtime/test-modules/collectors.mjs');
+assert(!partsListing('Rolex Datejust 36 Wimbledon Dial, Smooth Bezel, Jubilee Bracelet Ref. 126200'));
+assert(!partsListing('[WTS] Omega Speedmaster 310.30.42.50.01.001 on bracelet, full set'));
+assert(partsListing('Rolex Jubilee bracelet for 126200'));assert(partsListing('Seiko SPB143 strap'));assert(partsListing('Rolex 126200 dial only'));
+console.log('Base-reference matching and Nordic marketplace checks passed.');
+// WatchRecon: reduced real markup.
+const wr=parseWatchRecon(await readFile('tests/fixtures/watchrecon-126200.html','utf8'),silverJub,new Date('2026-11-08T12:00:00Z'));
+const wrDj=parseWatchRecon(await readFile('tests/fixtures/watchrecon-126200.html','utf8'),dj,new Date('2026-11-08T12:00:00Z'));
+assert(wrDj.some(l=>l.price===9000&&l.currency==='USD'&&l.sourceId==='reddit'&&l.observedAt==='2026-11-03'&&l.match==='reference'),'brand comes from the brand field');
+assert(wrDj.every(l=>l.url.startsWith('https://')));
+assert(!wr.some(l=>l.price===9000&&l.match!=='similar'),'Wimbledon dial is not the silver variant');
+assert(wr.some(l=>l.price===10829&&l.match==='similar'),'black dial is not the silver variant');
+assert.throws(()=>parseWatchRecon('<html>Just a moment...</html>',dj),/WatchRecon/);
+assert.equal(relativeDate('5 days ago',new Date('2026-11-08T12:00:00Z')),'2026-11-03');
+assert.equal(relativeDate('14 hours ago',new Date('2026-11-08T12:00:00Z')),'2026-11-07');
+assert.equal(relativeDate('yesterday'),undefined);
+console.log('WatchRecon checks passed.');
+// Bot walls are reported as blocked (no rapid retry); other failures stay errors.
+await assert.rejects(()=>safeFetch('https://x.test',{},async()=>new Response('',{status:403})),e=>e.code==='blocked'&&failureStatus(e)==='blocked');
+await assert.rejects(()=>safeFetch('https://x.test',{},async()=>new Response('',{status:500})),e=>failureStatus(e)==='error');
+console.log('Blocked-source checks passed.');

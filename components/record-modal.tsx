@@ -60,7 +60,7 @@ export default function RecordModal({ kind, models, selected, sources, currency,
           <div className="about">
             <p>WatchLedger is a personal price search and tracker. It has no selling or checkout features.</p>
             <h3>Market price</h3>
-            <p>Each watch page checks Tori.fi live (and eBay when API credentials are configured) for active listings. The market price is the median or average of listings whose title names this exact reference, in the selected currency and region. Catalog variants such as 126200-0001 also match listings that only say 126200. Similar listings from the same model line are shown separately and never used for the price. If no exact listing is live, your saved prices are used instead.</p>
+            <p>Each watch page checks Tori.fi, FINN.no, Blocket and DBA live, sale forums through WatchRecon, the WatchUSeek feed, and eBay when API credentials are configured. The market price is the median or average of listings that name this reference, in the selected currency and region. Catalog variants such as 126200-0001 also use listings that only say 126200 (labelled), unless they name a different dial; with 3 or more complete-variant prices only those are used. Cross-posts count once and far-off prices are excluded. Similar listings from the same model line are shown separately and never used for the price.</p>
             <h3>Your observations</h3>
             <p>Bookmark a live listing or record a price manually to build a dated history. Current comparisons use the latest observation per listing URL to avoid overweighting listings collected repeatedly. EUR, USD, GBP and CHF are never combined or converted.</p>
             <h3>Asking is different from sold</h3>

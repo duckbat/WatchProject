@@ -6,13 +6,13 @@ export type Prefs = { region: string; currency: string; basis: string; method: s
 export type ModalKind = '' | 'owned' | 'observation' | 'source' | 'model' | 'about';
 export type BrandFacet = { brand: string; count: number };
 export type Me = { user: { name: string | null; email: string; displayName: string } | null; signOutPath?: string; signInPath?: string };
-export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'similar'; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
+export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
 export type SourceStatus = { id: string; name: string; status: 'ok' | 'error' | 'credentials_required' | 'blocked'; count: number; message?: string; searchUrl?: string };
 export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; sources: SourceStatus[]; threads?: { title: string; url: string; date: string; source: string }[] };
 
 export const defaultPrefs: Prefs = { region: 'Global', currency: 'EUR', basis: 'all', method: 'median', period: '365', condition: 'all', seller: 'all', convert: 'on' };
 export const statuses: Record<string, string> = { asking: 'Asking price', 'confirmed-sale': 'Confirmed sale', 'sold-asking': 'Sold · last ask' };
-export const regions: [string, string][] = [['Global', 'Global'], ['EU', 'European Union'], ['US', 'United States'], ['Asia', 'Asia'], ['FI', 'Finland'], ['GB', 'United Kingdom'], ['CH', 'Switzerland']];
+export const regions: [string, string][] = [['Global', 'Global'], ['EU', 'European Union'], ['US', 'United States'], ['Asia', 'Asia'], ['FI', 'Finland'], ['SE', 'Sweden'], ['NO', 'Norway'], ['DK', 'Denmark'], ['GB', 'United Kingdom'], ['CH', 'Switzerland']];
 export const periods: [string, string][] = [['30', '1M'], ['90', '3M'], ['180', '6M'], ['365', '1Y'], ['36500', 'All']];
 export const popularBrands = ['Rolex', 'Omega', 'Tudor', 'Cartier', 'Patek Philippe', 'Audemars Piguet', 'Seiko', 'Grand Seiko', 'TAG Heuer', 'Breitling', 'IWC', 'Longines'];
 export const popularSearches = ['Rolex Submariner', 'Omega Speedmaster', 'Tudor Black Bay', 'Rolex Datejust 36', 'Cartier Santos', 'Seiko Prospex'];

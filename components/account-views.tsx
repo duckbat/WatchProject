@@ -7,7 +7,7 @@ import { WatchCard } from './home-view';
 import { BookmarkletInstall } from './save-from-web';
 import { matchesPrefs, statuses, type BrandFacet, type ModalKind, type Prefs, type Route } from './shared';
 
-type Source = { id: string; name: string; url?: string; country?: string };
+type Source = { id: string; name: string; url?: string; country?: string; mode?: string };
 
 export function CollectionView({ entries, models, prefs, onPrefs, onNavigate, onModal, onRemove }: { entries: Entry[]; models: Record<string, Model>; prefs: Prefs; onPrefs: (p: Prefs) => void; onNavigate: (r: Route) => void; onModal: (k: ModalKind) => void; onRemove: (id: string) => void }) {
   const owned = entries.filter((e) => e.kind === 'owned');
@@ -138,7 +138,7 @@ export function SourcesView({ sources, onModal, onImport }: { sources: Source[];
         <div>
           <p className="eyebrow">PROFILE</p>
           <h1>Marketplace sources</h1>
-          <p className="subtitle">Where prices come from. Tori.fi supplies asking prices and Phillips supplies reported auction sales. Listings are archived automatically. Reddit’s public RSS is temporary and retires November 13, 2026. eBay needs free API keys (see MARKETPLACES.md). Chrono24 and Facebook groups can’t be searched automatically, so use the Save to WatchLedger button below; Chrono24 prices show its 6.95% fee.</p>
+          <p className="subtitle">Nordic marketplaces supply asking prices; WatchRecon and WatchUSeek add sale posts and sold-marked last asking prices. Antiquorum, Christie’s and Phillips supply published auction results when reachable. Christie’s coverage is limited to selected Geneva catalogues. Listings are archived automatically, and each watch shows collection failures. Estimates and bids are never counted as sales. eBay needs API keys; sources marked not connected contribute no automatic prices.</p>
         </div>
         <button className="primary" onClick={() => onModal('source')}><Plus size={16} />Add source</button>
       </div>
@@ -147,7 +147,7 @@ export function SourcesView({ sources, onModal, onImport }: { sources: Source[];
           <article className="source-card" key={s.id}>
             <div className="source-top">
               <span className="source-monogram">{s.name.slice(0, 1)}</span>
-              <span className="tag">{s.id === 'phillips' ? 'Automatic reported sales' : s.id === 'tori' ? 'Automatic asking prices' : s.id === 'reddit' ? 'RSS retiring Nov 13' : s.id === 'ebay' ? 'API keys needed' : s.id === 'chrono24' ? 'Save button · 6.95% fee shown' : s.id === 'facebook' || s.id === 'web' ? 'Save button' : 'Manual'}</span>
+              <span className="tag">{s.id === 'reddit' ? 'API access required' : s.id === 'ebay' ? 'API keys needed' : s.id === 'chrono24' ? 'Save button · 6.95% fee shown' : s.id === 'watchuseek' ? 'Automatic public RSS' : s.mode || 'Manual observations'}</span>
             </div>
             <h2>{s.name}</h2>
             <p>{s.country ? countries[s.country] : 'Multiple regions'}</p>

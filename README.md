@@ -1,5 +1,7 @@
 # WatchProject — WatchLedger
 
+Market data now includes Antiquorum published sold results and selected Christie’s Geneva online catalogues (December 2023 and October 2026), alongside Nordic asking prices, WatchRecon/WatchUSeek sale posts and Phillips when reachable. Auction results enter the existing archived graphs and scheduled refresh. Estimates, bids and multi-watch bundles are excluded; sold-marked forum prices remain last asks. See `MARKETPLACES.md` for coverage limits and sources that are not connected.
+
 WatchLedger is a private website for discovering watch models, tracking a personal collection, and comparing prices across global and local marketplaces.
 
 [Open the website](https://watchledger-khai.breezydragonfly1.chatgpt.site)
@@ -32,10 +34,11 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 | Source | Current support |
 | --- | --- |
 | Phillips | Automatic public auction results: verifies brand/reference on lot pages, imports reported sale amounts and auction end dates. Up to eight sold lots from the first search page. |
-| Tori.fi | On-demand collection of public asking prices, with complete brand/reference matching, preserving dial/bracelet variant suffixes and review before saving. |
+| Tori.fi, FINN.no, Blocket, DBA | Live asking prices from Finland, Norway, Sweden and Denmark (one shared classifieds platform). Listings naming only the base reference count as "same reference", labelled, unless they name a different dial. |
+| WatchRecon | Sale posts indexed from watch forums (mostly r/Watchexchange, r/Watch_Swap, TimeZone), with price and post date. |
 | eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
 | Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; save listings with the **Save to WatchLedger** button or record them manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
-| Reddit r/Watchexchange | Live search of [WTS] posts through Reddit's public RSS feed (no keys); posts whose title states a price are plotted on their post date. Optional API keys add post-body prices. |
+| Reddit r/Watchexchange | Reddit's public RSS is blocked/retired (Nov 2026) and new API keys are closed; posts arrive through WatchRecon. Existing API keys still work until March 2027. |
 | WatchUSeek | Sale-forum RSS feed archived as it is read; threads naming a reference with a price in the title or preview are used. |
 | Facebook groups | No API exists; use the **Save to WatchLedger** browser button on a post. |
 | Any website | **Save to WatchLedger** browser button: reads the listing you are viewing (structured price data or selected text) and adds it to your history. |
@@ -56,7 +59,7 @@ Original photo URLs were recovered for 39,883 catalog references. Missing or una
 - Server-side catalog search and pagination, so the full catalog is not downloaded into browser JavaScript.
 - Bounded marketplace requests, request-rate limits, and duplicate-observation checks.
 
-See [MARKETPLACES.md](MARKETPLACES.md) to connect eBay and set up the save button, and [API.md](API.md) for endpoints, collector setup, supported currencies, and limitations. See [data/catalog/README.md](data/catalog/README.md) for catalog provenance and [PROJECT-NOTES.md](PROJECT-NOTES.md) for implementation notes.
+See [DATA-SOURCES-RESEARCH.md](DATA-SOURCES-RESEARCH.md) for the per-platform data access research and price-accuracy audit, [MARKETPLACES.md](MARKETPLACES.md) to connect eBay and set up the save button, and [API.md](API.md) for endpoints, collector setup, supported currencies, and limitations. See [data/catalog/README.md](data/catalog/README.md) for catalog provenance and [PROJECT-NOTES.md](PROJECT-NOTES.md) for implementation notes.
 
 ## Framework and hosting reference
 

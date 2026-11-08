@@ -24,7 +24,8 @@ const sale = parsePhillipsSale(detail, results[0], model, now);
 assert.equal(sale.price, 82550);
 assert.equal(sale.currency, 'HKD');
 assert.equal(sale.status, 'confirmed-sale');
-assert.equal(sale.match, 'similar');
+assert.equal(sale.match, 'reference'); // base reference only: variant not stated
+assert.equal(parsePhillipsSale(detail, results[0], { ...model, name: 'Datejust 36 / Silver / Jubilee' }, now).match, 'similar'); // Palm Green is not the silver dial
 assert.equal(parsePhillipsSale(detail.replace('126200', '126200-0001'), results[0], model, now).match, 'exact');
 assert.equal(sale.country, 'UNKNOWN'); // Auction venue is not the seller's location.
 assert.equal(parsePhillipsSale(detail.replace('126200', '1262000'), results[0], model, now), null);

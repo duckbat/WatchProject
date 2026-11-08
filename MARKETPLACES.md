@@ -4,15 +4,24 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
 
 | Source | Setup | What you get |
 | --- | --- | --- |
-| Phillips | None | Public search + lot pages. Only published Sold For amounts with a matching brand/base reference and auction end date become reported sales. A complete variant reference is additionally required for an exact match. Estimates, current bids and login-only prices are excluded. |
-| Tori.fi | None | Live asking prices (Finland), searched on every watch page. |
-| r/Watchexchange | None | Reddit's public RSS search, available only until its announced retirement on November 13, 2026. `[WTS]`/`[WTT]` posts from the last year whose **title** states a price, plotted on their post date. Reddit rate-limits this feed; checks are spaced at least one minute apart and observations are retained in D1 when a later request fails. |
+| Phillips | None | **Blocked since 8 Nov 2026 (HTTP 403); shown as "blocked", retained results stay.** Public search + lot pages. Only published Sold For amounts with a matching brand/base reference and auction end date become reported sales. A complete variant reference is additionally required for an exact match. Estimates, current bids and login-only prices are excluded. |
+| Tori.fi, FINN.no, Blocket, DBA | None | Live asking prices from Finland, Norway, Sweden and Denmark. The four sites share one classifieds platform and its structured data, so one parser reads all of them. Item pages supply the last-edited date. Titles marked sold (Solgt/Såld/Myyty) are kept as "sold · last ask". |
+| WatchRecon | None | Index of ~15 watch forums' sale sections. In practice now mostly r/Watchexchange and r/Watch_Swap, plus TimeZone. Gives price, post date and brand per post. Replaces Reddit's public RSS, which Reddit blocked. Only the newest ~2 weeks are searchable per check (robots.txt disallows `last_days`); posts are archived, so history grows with use. |
+| r/Watchexchange (RSS) | — | **Gone.** Reddit's public RSS returned HTTP 403 from 8 Nov 2026 and is retired on 13 Nov 2026. Reddit posts now arrive through WatchRecon. |
 | r/Watchexchange (API) | Optional `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | Also reads prices from the post body and searches the model line. New public API requests closed October 31, 2026; remaining public API access is scheduled to end March 2027. Approved access is required. |
 | WatchUSeek (Private Sellers and Sponsors) | None | The forum's public RSS feed (newest ~35 sale threads). There is no usable search (robots.txt disallows `/search/`) and thread pages sit behind a JavaScript bot check, so WatchLedger **archives every thread it sees** (feed checked at most every 30 min, when a watch page is opened) and matches each watch against the archive. A price is used when the title or feed preview states one; matching threads without a visible price are listed with links so you can save them with the button. Coverage grows the longer the app is used. |
 | eBay | Free keys, see below | Up to 50 active listings per watch from one eBay marketplace. |
 | Chrono24 | Save button | No public API, and automated requests get a bot check. Use **Save to WatchLedger** on listings you view. Prices show Chrono24's 6.95% commission. |
 | Facebook groups | Save button | Facebook removed its Groups API in 2024. The built-in **Facebook watch group** (`groups/1424920254386825`) gets a *Search group* link on every watch page (Facebook's own in-group search, while you are signed in to Facebook). Open a post, select its text, click **Save to WatchLedger**; posts from that group are tagged with it automatically. Add more groups under Sources → Add source with the group URL. |
 | Any other site | Save button | Reads the page's structured price data or your selected text. |
+
+## How matching decides what counts toward the price
+
+- **Exact**: the listing names the complete catalog reference (`126200-0001`).
+- **Same reference** (new): the listing names the base reference (`126200`) but not the variant suffix, and names no other dial colour or style (Ombré, Palm, Roman, Wimbledon…). Sellers almost never write Rolex/Tudor suffixes, so before this every Rolex and Tudor page had close to zero priced listings. These listings are labelled "dial/bracelet variant not stated". When 3 or more exact-variant prices exist, only those set the market price.
+- **Similar**: same model line only. Never priced; hidden from the chart by default.
+- Wanted ads (WTB, ostetaan, købes…), bracelet/link/strap sales ("bracelet for…", "lenke", "länk") are dropped. Titles that only *describe* the bracelet ("on Jubilee bracelet", "smooth bezel") are kept.
+- Before the median is taken, cross-posts of the same watch (same title and price within 21 days) count once, and far-off prices (deposits, typos, parts) are dropped using the median absolute deviation (needs ≥5 prices). The price box says how many were dropped.
 
 ## eBay (about 10 minutes, free)
 
@@ -54,6 +63,18 @@ Opening a catalog watch collects listings and saves a shared public-data archive
 `POST /api/market/refresh` refreshes one previously viewed public catalog reference due after six hours, oldest first. It returns `refreshed` and `remaining`; a scheduled run can call it repeatedly. This shared updater relies on the confirmed owner-only Sites gateway and the platform's service credential. It never reads personal collection records or accepts arbitrary URLs. Preserve the private audience when using this endpoint. Routine updates do not require a deployment.
 
 Phillips coverage is the first search page, at most eight sold lot details per lookup. Amounts are the auction house's reported totals, not normalized hammer prices or seller proceeds. Public availability does not itself establish redistribution rights. Chrono24 remains blocked and is not represented as an automatic data source.
+
+## Additional auction sources (8 November 2026)
+
+Antiquorum is collected from the first public reference-search page (up to 30 lots). Only an explicit `Sold:` amount with an auction date is imported. Estimates, current bids, missing outcomes and multi-watch bundles are excluded. Reported amounts retain their original currency; their fee basis is unspecified unless established by the source.
+
+Christie’s global search endpoint currently returns HTTP 404, but its public online catalogues work. Automatic coverage starts with the Geneva online sales of December 2023 (3335) and October 2026 (3914), up to four cumulative pages per catalogue. Only `price_realised`, not `current_bid` or an estimate, becomes a reported sale. The catalogue describes results as including buyer’s premium. Unsold, withdrawn, open and future lots are excluded. This is selected-catalogue coverage, not the complete Christie’s archive.
+
+Both collectors feed the same persistent archive, source filters, reported-sale graph series and unattended refresh. Auction venue is not assumed to be seller location. Dial descriptions are retained for archive reclassification. Separate auction lots are not collapsed merely because their model, amount and date coincide.
+
+Bukowskis and Cheffins publish numeric results but local fetching encountered HTTP 202 challenges; Kaplans returned 403. Bonhams has published result evidence, but an automatic collector is not verified. These sources are listed as not connected and supply no automatic prices. Loupe This and Collecting.com require sign-in for final prices. Catawiki remains blocked. No estimate or last bid from those sources is presented as a sale.
+
+The eBay Marketplace Insights sold-history API is restricted and not open to new users; new Browse API credentials enable active listings, not a general sold-price feed. Public page access does not itself establish redistribution rights.
 
 ## Variant matching
 

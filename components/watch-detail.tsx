@@ -8,7 +8,7 @@ import { listingKind } from '../lib/listing-archive';
 import PriceScatter, { type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
 import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
-import { computeMetrics, type MetricPrice } from '../lib/metrics';
+import { computeMetrics, dedupeCrossPosts, withoutOutliers, type MetricPrice } from '../lib/metrics';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
 import { matchesPrefs, periodStart, periods, regions, statuses, today, type LiveListing, type LiveResult, type ModalKind, type Prefs, type Route } from './shared';
@@ -121,9 +121,10 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     const p = toCur(l.price, l.currency);
     return p === null ? [] : [l.currency === prefs.currency ? l : { ...l, price: Math.round(p), currency: prefs.currency, originalPrice: l.price, originalCurrency: l.currency }];
   });
-  const convertedCount = listings.filter((l) => l.originalCurrency && l.match === 'exact').length + saved.filter((e) => (e.data as any).originalCurrency).length;
+  const convertedCount = listings.filter((l) => l.originalCurrency && l.match !== 'similar').length + saved.filter((e) => (e.data as any).originalCurrency).length;
   const liveIn = (l: LiveListing) => l.currency === prefs.currency && inRegion(l.country, prefs.region) && (prefs.condition === 'all' || l.condition === prefs.condition) && (prefs.seller === 'all' || l.sellerType === prefs.seller) && (prefs.basis === 'all' || l.status === prefs.basis) && l.observedAt >= periodStart(prefs.period);
-  const exact = listings.filter((l) => l.match === 'exact');
+  // Priced listings: the complete reference, or the base reference with the variant unstated (labelled on each card).
+  const exact = listings.filter((l) => l.match !== 'similar');
   const similar = listings.filter((l) => l.match === 'similar');
   const exactIn = exact.filter(liveIn);
   const similarIn = similar.filter(liveIn);
@@ -133,11 +134,16 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const periodOk = (d: string) => prefs.period === '36500' || d >= periodStart(prefs.period);
   const isSold = (status: string) => status === 'sold-asking' || status === 'confirmed-sale';
   const exactUrls = new Set(exact.map((l) => l.url));
-  const pool = [
+  const classifieds = new Set(['tori', 'finn', 'blocket', 'dba', 'ebay']);
+  const candidates = dedupeCrossPosts([
     // Active marketplace listings count as current; forum posts count on their post date.
-    ...exact.map((l) => ({ ...l, date: l.status === 'asking' && (l.sourceId === 'tori' || l.sourceId === 'ebay') ? l.observedAt : l.listedAt || l.observedAt })).filter((l) => inScope(l) && periodOk(l.date)).map((l) => ({ price: l.price, status: l.status, date: l.date, converted: Boolean(l.originalCurrency) })),
-    ...latestListings(saved.filter((e) => inScope(e.data) && periodOk(e.data.observedAt) && !(e.data.url && exactUrls.has(e.data.url)))).map((e) => ({ price: e.data.price, status: e.data.status, date: e.data.observedAt, converted: Boolean((e.data as any).originalCurrency) })),
-  ];
+    ...exact.map((l) => ({ ...l, date: l.status === 'asking' && classifieds.has(l.sourceId) ? l.observedAt : l.listedAt || l.observedAt })).filter((l) => inScope(l) && periodOk(l.date)).map((l) => ({ price: l.price, status: l.status, date: l.date, title: l.title, variant: l.match === 'exact', converted: Boolean(l.originalCurrency) })),
+    ...latestListings(saved.filter((e) => inScope(e.data) && periodOk(e.data.observedAt) && !(e.data.url && exactUrls.has(e.data.url)))).map((e) => ({ price: e.data.price, status: e.data.status, date: e.data.observedAt, title: (e.data as any).title as string | undefined, variant: true, converted: Boolean((e.data as any).originalCurrency) })),
+  ]);
+  // With enough complete-variant prices, the variant alone sets the price; otherwise same-reference listings fill in.
+  const variantOnly = candidates.filter((p) => p.variant).length >= 3;
+  const { kept: pool, dropped: outliers } = withoutOutliers(variantOnly ? candidates.filter((p) => p.variant) : candidates, (p) => p.price);
+  const nReference = pool.filter((p) => !p.variant).length;
   const soldPool = pool.filter((p) => isSold(p.status));
   const marketPrice = summarize(pool.map((p) => p.price), prefs.method);
   const soldPrice = summarize(soldPool.map((p) => p.price), prefs.method);
@@ -145,7 +151,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const rangeLabel = periods.find(([v]) => v === prefs.period)?.[1];
   const nConverted = pool.filter((p) => p.converted).length;
   const marketBasis = pool.length
-    ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${pool.length} price${pool.length === 1 ? '' : 's'} (${pool.length - soldPool.length} asking · ${soldPool.length} sold) · ${rangeLabel}${nConverted ? ` · ${nConverted} converted to ${prefs.currency}` : ''}`
+    ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${pool.length} price${pool.length === 1 ? '' : 's'} (${pool.length - soldPool.length} asking · ${soldPool.length} sold) · ${rangeLabel}${nReference ? ` · ${nReference} for Ref. ${baseReference(model.reference)} without a stated dial/bracelet` : ''}${outliers.length ? ` · ${outliers.length} outlier${outliers.length === 1 ? '' : 's'} excluded` : ''}${nConverted ? ` · ${nConverted} converted to ${prefs.currency}` : ''}`
     : '';
   const lows = exactIn.map((l) => l.price);
   const otherCurrencies = (live?.listings || []).filter((l) => l.match === 'exact' && !listings.some((x) => x.url === l.url)).map((l) => l.currency);
@@ -179,7 +185,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const regionOk = (country: string) => inRegion(country, prefs.region);
   const metricPrices: MetricPrice[] = [
     ...saved.filter((e) => e.data.currency === prefs.currency && regionOk(e.data.country) && !exact.some((l) => e.data.url && l.url === e.data.url)).map((e) => ({ date: e.data.observedAt, price: e.data.price, status: e.data.status, condition: e.data.condition, contents: e.data.contents, sellerType: e.data.sellerType })),
-    ...exact.filter((l) => l.currency === prefs.currency && regionOk(l.country)).map((l) => ({ date: l.listedAt || l.observedAt, price: l.price, status: l.status, condition: l.condition, contents: l.contents, sellerType: l.sellerType, active: !l.archived && l.status === 'asking' && (l.sourceId === 'tori' || l.sourceId === 'ebay'), listedAt: l.listedAt })),
+    ...exact.filter((l) => l.currency === prefs.currency && regionOk(l.country)).map((l) => ({ date: l.listedAt || l.observedAt, price: l.price, status: l.status, condition: l.condition, contents: l.contents, sellerType: l.sellerType, active: !l.archived && l.status === 'asking' && classifieds.has(l.sourceId), listedAt: l.listedAt })),
   ];
   const retails = entries.filter((e) => e.kind === 'retail' && e.data.modelId === modelId).sort((a, b) => String(b.data.asOf).localeCompare(String(a.data.asOf)));
   const retail = retails.find((e) => e.data.currency === prefs.currency);
@@ -217,15 +223,16 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <span className="listing-source">{sourceName(l.sourceId)} · {countries[l.country] || l.country}{l.condition !== 'unknown' ? ` · ${l.condition === 'new' ? 'New' : 'Pre-owned'}` : ''}</span>
           <a className="listing-title" href={l.url} target="_blank" rel="noreferrer">{l.title}</a>
           {l.match === 'similar' && <span className="listing-source">Not an exact variant match · excluded from market price</span>}
+          {l.match === 'reference' && <span className="listing-source">Ref. {baseReference(model.reference)} · dial/bracelet variant not stated</span>}
           <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}<span className={`tag${l.status !== 'asking' ? ' sold-tag' : ''}`}>{l.status === 'confirmed-sale' ? 'Reported sale' : l.status === 'sold-asking' ? 'Sold · last ask' : l.archived ? 'Asking · last observed' : 'Asking'}</span></strong>
           {l.archived && l.lastSeenAt && <span className="listing-source">Last seen {fmtDate(l.lastSeenAt.slice(0, 10))} · availability not reverified</span>}
           {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
-          {l.listedAt && <span className="listing-source">{l.status === 'confirmed-sale' ? 'Auction ended' : l.sourceId === 'tori' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+          {l.listedAt && <span className="listing-source">{l.status === 'confirmed-sale' ? 'Auction ended' : classifieds.has(l.sourceId) && l.sourceId !== 'ebay' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
           <div className="listing-actions">
             <a className="secondary" href={l.url} target="_blank" rel="noreferrer">
               View listing <ArrowUpRight size={13} />
             </a>
-            {l.match === 'exact' && (
+            {l.match !== 'similar' && (
               <button className="icon-btn" disabled={isSaved || saving === l.url} title={isSaved ? 'Saved to your price history' : 'Save to your price history'} aria-label={isSaved ? 'Saved to your price history' : 'Save to your price history'} onClick={() => save(l)}>
                 {isSaved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
               </button>
@@ -303,8 +310,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
             <div className="price-row market">
               <div>
-                <h3>Market price <span className="info" title="Median (or average) of asking and sold prices for this exact reference in the selected currency, region and time range: live listings, forum posts and your saved prices." role="img" aria-label="About market price"><Info size={13} /></span></h3>
-                <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : 'No complete-reference matches found'}</p>
+                <h3>Market price <span className="info" title="Median (or average) of asking and sold prices for this reference in the selected currency, region and time range: live listings, forum posts and your saved prices. Listings that name only the base reference count when fewer than 3 complete-variant prices exist. Cross-posts are counted once and far-off prices are excluded." role="img" aria-label="About market price"><Info size={13} /></span></h3>
+                <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : 'No reference matches found'}</p>
               </div>
               <div className="price-value">
                 <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
@@ -313,7 +320,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
             <div className="price-row sold">
               <div>
-                <h3>Sold price <span className="info" title="Median of prices marked sold: sold r/Watchexchange posts, WatchUSeek SOLD threads, and sales you record or import. A 'sold · last ask' is the asking price of a watch that sold." role="img" aria-label="About sold price"><Info size={13} /></span></h3>
+                <h3>Sold price <span className="info" title="Median of prices marked sold: sold forum posts (r/Watchexchange via WatchRecon, WatchUSeek), classifieds marked sold, auction results, and sales you record or import. A 'sold · last ask' is the asking price of a watch that sold." role="img" aria-label="About sold price"><Info size={13} /></span></h3>
                 <p>{soldPool.length ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${soldPool.length} sold · ${rangeLabel}` : 'No sold prices in this range yet'}</p>
               </div>
               <div className="price-value">
@@ -446,12 +453,12 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               {similarIn.length > 0 && <button className="text-btn" aria-pressed={showSimilar} onClick={() => setShowSimilar((v) => !v)}>{showSimilar ? 'Hide' : 'Show'} similar / unverified variants ({similarIn.length})</button>}
             </div>
             {chartPoints.length ? (
-              <><PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} /><p className="fine">Automatic prices require the complete reference {model.reference}, including any variant suffix. Similar and unverified variants are optional context and never affect the market price. Sold · last ask is an advertised price, not the negotiated sale amount.</p></>
+              <><PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} /><p className="fine">Complete-reference matches are preferred. Listings naming only Ref. {baseReference(model.reference)} are labelled when their dial/bracelet is unstated; they can contribute when fewer than three complete-variant prices are available. Explicit dial conflicts and similar models stay outside the market price. Sold · last ask is an advertised price, not the negotiated sale amount.</p></>
             ) : (
               <div className="chart-empty">
                 <div className="empty-chart-lines" />
                 <h3>{liveState === 'loading' ? 'Loading prices…' : 'No prices for these filters yet'}</h3>
-                <p>{liveState === 'loading' ? 'Checking live marketplaces.' : `Listings must confirm the complete reference ${model.reference}. You can view similar / unverified variants separately or record a verified price.`}</p>
+                <p>{liveState === 'loading' ? 'Checking live marketplaces.' : `No prices for Ref. ${baseReference(model.reference)} match these filters. You can view similar / unverified variants separately or record a verified price.`}</p>
               </div>
             )}
           </>
@@ -553,7 +560,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               </button>
             ))}
           </div>
-          <p className="fine">Region follows seller location. Currencies are never converted.</p>
+          <p className="fine">Region follows seller location, not auction venue. {prefs.convert === 'off' ? `Only ${prefs.currency} prices are included.` : 'Other currencies use ECB reference rates where available.'}</p>
         </div>
         <div className="panel">
           <div className="section-head">

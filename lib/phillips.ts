@@ -1,4 +1,4 @@
-import { baseReference, collectedPrice, CollectorError, decodeEntities, exactMatch, safeFetch, type LiveListing } from './collectors';
+import { baseReference, classifyMatch, collectedPrice, CollectorError, decodeEntities, exactMatch, safeFetch, type LiveListing } from './collectors';
 import type { Model } from './market';
 
 const plain = (html: string) => decodeEntities(html.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -28,7 +28,7 @@ export function parsePhillipsSale(html: string, result: ReturnType<typeof philli
   if (!amount) return null;
   const currency = ({ 'HK$': 'HKD', 'US$': 'USD', '$': 'USD', '€': 'EUR', '£': 'GBP' } as Record<string, string>)[amount[1]] || amount[1];
   const candidate = collectedPrice.safeParse({ modelId: model.id, sourceId: 'phillips', country: 'UNKNOWN', currency, price: Number(amount[2].replaceAll(',', '')), status: 'confirmed-sale', observedAt: result.date, condition: 'unknown', sellerType: 'unknown', contents: 'unknown', url: result.url, title: `${brand} ${name} Ref. ${reference} · Phillips reported auction result`.slice(0, 500), collectedAt: now.toISOString() });
-  return candidate.success ? { ...candidate.data, match: exactMatch(`${brand} ${name} Ref. ${reference} Dial: ${field('Dial')}`, model) ? 'exact' : 'similar', listedAt: result.date, image: result.image || undefined } : null;
+  return candidate.success ? { ...candidate.data, match: classifyMatch(`${brand} ${name} Ref. ${reference} Dial: ${field('Dial')}`, model) ?? 'similar', listedAt: result.date, image: result.image || undefined } : null;
 }
 
 export async function collectPhillips(model: Model) {
