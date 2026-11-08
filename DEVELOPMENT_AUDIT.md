@@ -28,3 +28,7 @@ Eleven project-local skills were authored from the shared discussion and current
 ## Applying a finding
 
 For an authorized follow-up, first reproduce or measure the relevant path, state the intended observable outcome, implement the smallest justified change, and verify ownership/data invariants plus focused tests. This audit does not introduce an approval gate for ordinary bug fixes or authorize a broad refactor.
+
+## Universal skill revision
+
+The eleven core skills were generalized for other projects and installed at user level. Original project-specific instructions are retained in WATCHLEDGER_GUIDANCE.md. See DEVELOPMENT_SKILLS.md for installation scope and portability; this revision does not implement the follow-up candidates above.

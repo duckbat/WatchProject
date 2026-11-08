@@ -1,18 +1,16 @@
 ---
 name: api-backend-performance
-description: "Diagnose WatchLedger route latency, collector fan-out or unnecessary requests when changing APIs and refresh behavior."
+description: "Diagnose backend latency, API request fan-out, expensive jobs or response efficiency when changing server behavior."
 ---
 
 # Api Backend Performance
 
-Trace app/api/catalog/route.ts, app/api/market/live/route.ts and lib/market-archive/watch-market.ts as relevant. Measure cache-hit and cache-miss latency separately and inspect actual request fan-out.
+Trace the slow route/job through validation, authorization, storage and external calls. Measure cache hits separately from misses and include realistic concurrency and tail latency where relevant.
 
-Use Promise.allSettled for independent providers so one failure does not discard other prices. Preserve safeFetch timeouts, response limits, no-redirect behavior and host backoff. Bound detail fetches and pagination.
+Run independent work concurrently with bounded fan-out and an intentional partial-failure policy. Preserve timeouts, cancellation, response-size limits, retry budgets and rate-limit backoff.
 
-Preserve catalog query validation and response bounds. Return stale observations with source failure information where the archive supports it; never manufacture success or sale status.
+Paginate or otherwise bound expensive responses. Streaming and background jobs are options when the workload benefits, not defaults for every endpoint. Keep job status, retries and idempotency observable.
 
-The shared refresh route updates public catalog data behind the owner-private Sites gateway. Custom watch collection remains owner-scoped. Keep refresh locks and minimum refresh intervals.
+Preserve ownership checks and failure semantics. A cache or fallback must not turn an error into fabricated success or silently return another tenant's data.
 
-Verify affected routes and failure isolation with tests/collectors.test.mjs, tests/shops.test.mjs or auction tests. Do not add AI streaming, queues or application load balancers without an actual requirement.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Verify representative success, timeout, cancellation, overload and dependency-failure paths with the project's test/runtime tools. Respect the actual hosting model; add pools, queues or load balancers only for a justified requirement.

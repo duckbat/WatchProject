@@ -1,20 +1,18 @@
 ---
 name: testing-quality
-description: "Select meaningful WatchLedger checks when implementing or reviewing changes and reporting their evidence."
+description: "Select meaningful checks and test evidence when implementing or reviewing a code change."
 ---
 
 # Testing Quality
 
-Use tests/helpers/lib.mjs for pure lib tests; it preserves module paths and replaces the Vite-only catalog shard loader for Node. Do not import cloudflare:workers modules into an unconfigured Node test.
+Discover the repository's actual test runner, language tools, build commands, fixtures and runtime requirements. Reuse existing helpers; do not assume a particular package manager, command or framework.
 
-Select checks by behavior: collectors/shops/auction-sources/auction-history for provider data; search-popularity/catalog for catalog/variant rules; metrics/market/new-price for price calculations; post-import for manual imports.
+Choose checks by the behavior and callers affected. Add a small meaningful test for new parsing, money, security, state-transition or other consequential logic. Test observable invariants and edge cases rather than copying implementation structure.
 
-Run node_modules/.bin/tsc --noEmit for TypeScript changes. Use the existing build workflow for runtime/client boundaries. Check package.json; do not invent npm test when no such script exists.
+Keep pure tests independent of unavailable platform bindings. Use integration tests for persistence, authentication and concurrency, and browser/device checks for UI behavior when those boundaries matter.
 
-Write small fixture-based tests for new money, parsing, status, identity or security branches. Cover misleading data: estimates, last bids, wrong dials, unavailable inventory and undisclosed accepted offers.
+Inspect smoke-test setup before running it: use disposable identities/data for mutations and avoid unintended external side effects. Preserve useful existing fixtures and keep private information out of new fixtures.
 
-API smoke scripts can create/delete records; inspect them and use a disposable identity/database. Pure tests do not prove live-source access, browser behavior or deployed authentication.
+Run the required focused checks after final relevant edits. Broaden testing when failures or unresolved risks justify it; do not impose a full suite for an unrelated documentation change.
 
-Report checks actually run and material gaps. Do not require a full audit or unrelated tests for a small reversible change.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Report what actually ran, the environment and material gaps. A passing typecheck, mock, build or fixture does not substitute for live/runtime evidence.

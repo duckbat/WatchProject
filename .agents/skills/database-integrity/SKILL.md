@@ -1,18 +1,16 @@
 ---
 name: database-integrity
-description: "Review WatchLedger D1 queries, record ownership, migrations and archive integrity when changing persistence."
+description: "Review query efficiency, data ownership, schema changes, migrations and concurrency when changing persistence."
 ---
 
 # Database Integrity
 
-Inspect db/index.ts, db/schema.ts and relevant app/api/records or market-archive callers. The database is Cloudflare D1 through Drizzle; do not add TCP connection pooling.
+Discover the database, driver, schema, transactions, migration tooling and actual query callers. Account for relational, document, embedded, serverless and other storage models instead of assuming SQL or TCP pooling.
 
-The records table stores id, owner, kind and JSON payload. Personal reads/writes/deletes must constrain owner on the server. Public market history uses MARKET_OWNER; custom-model archives use the authenticated owner.
+Preserve stable identifiers, relationships and existing authorization/tenant constraints on reads and mutations. Check uniqueness, idempotency and concurrent updates where the change depends on them.
 
-Preserve catalog IDs and existing observation amounts/statuses. Missing ads are retained observations, not sales. Archive merge and reclassification rules live in lib/market-archive/listings.ts.
+For query optimization inspect actual queries, representative cardinality and supported execution plans. Fix N+1 access or add indexes from evidence; include write cost and storage tradeoffs.
 
-Before adding indexes, inspect the actual SQL and an execution plan against representative data. Consider owner/kind queries and JSON expansion costs; do not claim a speedup without measurements. Migrations must preserve existing data and be reversible where feasible.
+Design migrations around existing records, deployment ordering and failure recovery. Do not discard historical data or reinterpret absence/status fields merely to improve speed.
 
-Use a disposable database for mutation tests. Test ownership boundaries and failed writes explicitly; pure parser tests do not establish database authorization or concurrency safety.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Use a disposable environment for mutation checks. Verify ownership boundaries, failed writes and meaningful concurrency cases. Parser or unit tests alone do not establish database behavior or production performance.

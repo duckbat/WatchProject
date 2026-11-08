@@ -1,18 +1,16 @@
 ---
 name: frontend-performance
-description: "Diagnose WatchLedger rendering, image, search, chart or bundle performance when a frontend change warrants it."
+description: "Diagnose frontend rendering, interaction latency, images, large lists or bundle size when a UI performance change is needed."
 ---
 
 # Frontend Performance
 
-Inspect components/search-box.tsx, home-view.tsx, watch-detail.tsx, watch-photo.tsx and price-cache.tsx for the affected flow. Capture request count, interaction timing or a browser profile before selecting an optimization.
+Inspect the actual UI framework, component boundaries and resource-loading path. Capture a representative interaction profile, request count or bundle report before choosing an optimization.
 
-Keep lib/catalog.ts and lib/catalog-shards.ts on the server: the full catalog must not enter client bundles. Import lightweight collector matching modules directly; the collector barrel includes server dependencies.
+Keep large datasets and server-only dependencies outside browser bundles. Preserve cancellation or stale-response guards for asynchronous search and avoid duplicate work across component mounts.
 
-Preserve search debounce, AbortController cleanup, bounded catalog responses and lazy image loading. Keep original exact-reference images and stable model IDs. Do not replace watch photos with similar dials.
+Prioritize visible content and appropriately sized images. Preserve asset identity, dimensions, meaningful fallbacks and accessibility; use responsive images, lazy loading or font changes when relevant to the measured bottleneck.
 
-Use bundle splitting, memoization or virtualization only for measured work. A scroll container does not virtualize a list; distinguish the two. Keep every catalogued dial selectable and searchable.
+Apply memoization, code splitting and virtualization only where they remove demonstrated work. A bounded or scrollable list may be sufficient; scrolling alone is not virtualization.
 
-Verify the affected interaction in a browser, compare the same measurement before/after, and run typecheck/build for client import changes. Do not claim a performance improvement from build success alone.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Verify the same interaction and data volume before/after, including loading, empty and failure states. Use the project's build/type checks for changed boundaries; build success alone does not prove a performance gain. For non-UI workloads use the relevant backend skill instead.

@@ -1,16 +1,14 @@
 ---
 name: architecture-discovery
-description: "Inspect WatchLedger architecture when onboarding, planning a cross-layer change, or updating the project context."
+description: "Inspect an unfamiliar codebase when onboarding, planning cross-layer work or preparing an architecture review."
 ---
 
 # Architecture Discovery
 
-Read PROJECT_CONTEXT.md, then verify the affected paths against the current checkout. Start with package.json, app/page.tsx, app/api/, lib/, db/ and .openai/hosting.json. Treat PROJECT-NOTES.md as historical until verified.
+Read applicable repository instructions and existing architecture notes, then verify the affected code. Discover the language, runtime, entry points, package/workspace boundaries, persistence, external integrations and supported commands rather than assuming a framework or directory layout.
 
-Trace one actual flow from UI through route, validation, collector/archive and storage. Distinguish public catalog/market data from owner-scoped custom watches and records. Record file evidence and unknowns in PROJECT_CONTEXT.md.
+Trace a representative request, job or user action through its actual callers and dependencies. Identify ownership/tenant boundaries and distinguish shared data from private data.
 
-For an audit, use DEVELOPMENT_AUDIT.md: separate demonstrated defects, static risks and unmeasured performance hypotheses. Inspect callers before proposing changes. Do not treat the shared chat's generic recommendations as repository findings.
+Record findings with file evidence, inspection scope and unknowns in the project's existing documentation format. Separate current behavior, historical notes and proposed designs.
 
-Verify referenced files exist and relevant tests are executable. Discovery itself does not authorize unrelated behavior changes, data migrations or external publication.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+For an audit, distinguish reproduced defects, static risks and unmeasured performance hypotheses. Discovery does not authorize unrelated code changes, migrations or publication.

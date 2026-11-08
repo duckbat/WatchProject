@@ -1,20 +1,18 @@
 ---
 name: agent-workflow
-description: "Guide scoped WatchLedger implementation and review when planning development work or coordinating several project skills."
+description: "Guide scoped implementation, investigation or review when coordinating development work and relevant skills."
 ---
 
 # Agent Workflow
 
-Read AGENTS.md and the relevant PROJECT_CONTEXT.md paths. Inspect git status and preserve concurrent edits. Load only the skill sections needed for the user's task, not the entire pack.
+Read applicable project instructions and inspect the current working tree before editing. Use only skills relevant to the task. Treat existing documentation as a starting point and verify drift-prone details against current code.
 
-Define the smallest observable outcome and trace affected callers before editing. Existing session authorization persists; do not add a new approval gate for routine reversible work. Skills do not authorize unrelated external writes.
+Identify the requested observable outcome and affected callers. Prefer existing components, helpers and dependencies over new abstractions. Preserve unrelated or concurrent changes and the project's actual business invariants.
 
-Diagnose before optimizing. Preserve owner-scoped data, stable references, selected-dial semantics and source evidence. Use existing helpers before new dependencies or abstractions.
+Diagnose before optimizing and use measurements where performance is the claim. Do not turn a small fix into an unrequested architecture audit or infrastructure project.
 
-For requested audits, record findings before implementing fixes; for an ordinary bug fix, do not impose a whole-project audit. Separate observed defects from hypotheses and honor the user's authorized scope.
+Apply the user's existing authorization and constraints; a skill neither grants extra permissions nor creates an additional approval gate for ordinary reversible work. Keep external writes and sensitive operations within the authorized scope.
 
-Run relevant checks from testing-quality and report concrete outcomes, limits and changed paths. Project guidance can be updated as part of this repo; user memory must not be changed without an explicit request.
+Run appropriate checks and report the result, changed paths and material limits. Keep project guidance and personal memory distinct; do not update memory without an explicit request.
 
-For application publication, follow the project's hosting workflow, preserve its existing Site identity/audience and verify the exact built source. Documentation-only skill installation does not require a production redeploy.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+When publication is part of the task, follow the existing deployment workflow and verify the exact built source and result. Instruction/documentation-only changes do not require an unrelated application deployment.

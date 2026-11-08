@@ -1,18 +1,16 @@
 ---
 name: ux-accessibility
-description: "Implement WatchLedger controls, loading states, dial choices and responsive interactions when changing UI."
+description: "Implement or review controls, navigation, loading states and responsive interactions when changing a user interface."
 ---
 
 # Ux Accessibility
 
-Reuse existing components, app/app.css tokens, button shapes and focus treatments. Preserve the search-first tracker and regional comparisons; do not add a selling workflow.
+Inspect the actual screen and reuse the project's components, tokens, copy and interaction patterns. Preserve the user's requested flow and limit visual changes to the intended scope.
 
-Every catalogued dial/bracelet must remain reachable. Variant choices show the full reference, selection state and meaningful label; distinguish Palm/fluted motif from a fluted bezel. Preserve the deliberate All dials versus selected-dial scope.
+Keep choices reachable and clearly labelled, including selected state and any identifiers needed to distinguish similar items. Use appropriate native semantics, accessible names, visible focus and keyboard operation.
 
-Provide keyboard access, accessible names, visible focus and useful empty/error/loading states. Source failures must not look like zero market activity. Do not rely on color alone for status or selection.
+Preserve logical focus/reading order, dialog dismissal and focus restoration. Verify narrow and wide layouts without hiding necessary actions or relying on color alone.
 
-Optimistic writes need rollback and error feedback. Do not optimistically label a listing sold or a transaction verified. Currency conversion and unknown seller location must remain understandable.
+Provide useful loading, empty, stale and error states. Optimistic updates need rollback and feedback; do not present an unverified state as a completed transaction or success.
 
-Verify the actual changed control with keyboard and pointer, relevant narrow/desktop layouts, empty results and errors. Capture a screenshot for visible UI changes. Typecheck is not browser verification.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Test the changed interaction with keyboard and pointer and inspect representative responsive layouts. Capture visual evidence when useful for review. Static checks do not establish rendered layout or assistive-technology behavior.

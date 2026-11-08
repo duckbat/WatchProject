@@ -39,4 +39,4 @@ Representative pure checks are `node tests/collectors.test.mjs`, `node tests/sho
 
 No production query plans, traffic profile, Web Vitals baseline, compression headers or live ownership attacks were measured during skill installation. No full-repository audit was performed. Redis, load balancers, AI response streaming, universal virtualization and new tracing dependencies are not justified by the shared video's generic advice alone.
 
-Skill routing is in AGENTS.md. Scoped static findings and follow-up verification are in DEVELOPMENT_AUDIT.md.
+Skill routing is in AGENTS.md. The reusable core is now stack-agnostic; WATCHLEDGER_GUIDANCE.md preserves the project-specific specialization, and DEVELOPMENT_SKILLS.md describes the user-level installation. Scoped static findings and follow-up verification are in DEVELOPMENT_AUDIT.md.

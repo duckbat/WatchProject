@@ -1,18 +1,16 @@
 ---
 name: security-privacy
-description: "Review WatchLedger authorization, external fetching, input boundaries and secrets when changing those surfaces or investigating a security issue."
+description: "Review authorization, untrusted inputs, external access and secret handling when changing a security-sensitive boundary or investigating a vulnerability."
 ---
 
 # Security Privacy
 
-Inspect app/chatgpt-auth.ts, app/api/records/route.ts, market/live and market/refresh, plus collector safeFetch. Verify authorization at the server boundary rather than trusting UI restrictions.
+Trace the actual trust boundary, identity source and authorization checks. Verify server-side ownership/tenant constraints rather than relying on client visibility or supplied IDs.
 
-Preserve owner constraints on custom models and personal records. The public-catalog service refresh relies on an owner-private Sites gateway: re-evaluate that boundary before any audience/access change.
+Validate untrusted input with the project's existing schemas and limits. For outbound fetching, assess URL/origin validation, redirects, internal-network access, body limits and timeouts according to the actual use case.
 
-Validate untrusted data with existing Zod schemas and provider URL/origin checks. Keep user-submitted marketplace URLs out of automatic fetches. Enforce body/response and pagination limits at the actual trust boundary, not only in a UI.
+Preserve secret storage and deployment access controls. Keep credentials and private payloads out of client bundles, source, logs and fixtures. A skill does not expand permissions or authorize external disclosure.
 
-Keep credentials server-side and out of source, command arguments, logs and fixtures. Follow the supported hosting credential workflow when publishing; a skill never grants extra access or approval.
+Check existing platform protections before adding custom security mechanisms. Evaluate rate limiting, request size and retry behavior at the boundary that actually handles the bytes or work.
 
-Verify cross-owner rejection, malformed inputs, unsafe URLs and provider failures for the changed path. Fixtures should contain watch facts, not seller contacts. Do not bypass CAPTCHA or source access controls to fill a price gap.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Verify relevant cross-user rejection, malformed/oversized input, unsafe targets and failure paths in a controlled environment. Report static concerns separately from demonstrated exploitability and state the scope of the review.

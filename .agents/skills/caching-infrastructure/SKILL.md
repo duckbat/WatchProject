@@ -1,20 +1,16 @@
 ---
 name: caching-infrastructure
-description: "Review WatchLedger cache freshness, invalidation and deployment assumptions when changing caches or hosting."
+description: "Review cache scope, freshness, invalidation, compression and deployment caching when changing performance or infrastructure."
 ---
 
 # Caching Infrastructure
 
-Inspect lib/fx.ts, lib/market-archive/watch-market.ts, popularity.ts, components/price-cache.tsx and route Cache-Control headers. Read TTLs from code instead of copying historical numbers.
+Map the relevant caches: request-local, process/isolate, client, persistent, distributed or HTTP/CDN. Read current TTLs and invalidation rules from code/configuration; process-local state is not globally shared or durable.
 
-Identify each cache's scope: isolate-local, browser-local, D1-persisted or HTTP. Worker isolate maps are not durable or globally shared. Distinguish a last-observed price from verified current inventory.
+Include all value-affecting dimensions in a cache key, or enforce a documented canonical scope. Keep private/tenant-specific responses out of shared caches unless isolation is explicit and verified.
 
-Include every value-affecting dimension in a key, or restrict cache writes to a documented canonical scope. Preserve the canonical-scope guard around RememberPrice in watch-detail.tsx. Keep personal records and live authenticated responses out of public caches.
+Define hit, miss, expiry, stale, failure and invalidation behavior. Preserve refresh throttles and stampede protection. Use versioning or revalidation when a semantic change makes cached values obsolete.
 
-Bump matching/collector versions when changed semantics require archive reclassification/refetch. Preserve minimum refresh limits and lock expiry.
+Inspect actual deployment response headers and runtime capabilities before changing compression, asset caching, region placement or background refresh behavior.
 
-Compression, CDN behavior and server placement are hosting concerns: inspect actual response headers before changing them. Do not introduce Redis or change the owner-private audience to implement caching.
-
-Verify hit, miss, stale, failure and invalidation paths using fake time where practical, then check hosted behavior separately from local preview.
-
-Project evidence: [PROJECT_CONTEXT.md](../../../PROJECT_CONTEXT.md).
+Introduce a distributed cache or new infrastructure only when the workload and measurements justify its operational cost. Validate freshness and isolation as well as latency; local tests do not prove CDN or production behavior.
