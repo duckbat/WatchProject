@@ -404,7 +404,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       <section className="detail-hero">
         <div className="detail-gallery">
           <div className="detail-photo">
-            <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />
+            <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} cutout />
             {owned.length > 0 && <span className="owned-tag">In my watches</span>}
           </div>
           {variants.length > 1 ? (
