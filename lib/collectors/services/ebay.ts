@@ -1,5 +1,5 @@
 import { countries, type Model } from '../../market';
-import { CollectorError } from '../core/errors';
+import { CollectorError, failureStatus } from '../core/errors';
 import { safeFetch } from '../core/http';
 import { type Candidate, collectedPrice, firstImage, type LiveListing } from '../core/listing';
 import { type CollectorResult, errorMessage, exactCandidates } from '../core/result';
@@ -39,7 +39,7 @@ export function parseEbayListings(
     } catch {
       continue;
     }
-    if (link.protocol !== 'https:' || !/(^|\.)ebay\.(com|de|co\.uk|fr|it|es)$/.test(link.hostname)) continue;
+    if (link.protocol !== 'https:' || !/(^|\.)ebay\.(com|de|co\.uk|fr|it|es|com\.hk|com\.sg)$/.test(link.hostname)) continue;
     const location = p.itemLocation?.country;
     const c = collectedPrice.safeParse({
       modelId: model.id,
@@ -82,8 +82,8 @@ export type EbaySecrets = {
 
 type EbayKeys = { host: string; id: string; secret: string; marketplace: string };
 
-/** Browse API: an application token, then up to 50 active listings in Wristwatches (category 31387). */
-export async function searchEbay(model: Model & { family?: string }, { host, id, secret, marketplace }: EbayKeys) {
+/** An application token for the Browse API (client credentials; no user data). */
+async function ebayToken({ host, id, secret }: Omit<EbayKeys, 'marketplace'>) {
   const auth = JSON.parse(
     await safeFetch(`https://${host}/identity/v1/oauth2/token`, {
       method: 'POST',
@@ -96,17 +96,58 @@ export async function searchEbay(model: Model & { family?: string }, { host, id,
   );
   if (typeof auth.access_token !== 'string')
     throw new CollectorError('credentials_required', 'eBay did not return an application token.');
+  return auth.access_token as string;
+}
+
+/** Up to 50 active listings in Wristwatches (category 31387) on one eBay site, optionally filtered (e.g. new only). */
+async function browseSearch(model: Model & { family?: string }, host: string, token: string, marketplace: string, filter?: string) {
   const url = new URL(`https://${host}/buy/browse/v1/item_summary/search`);
   url.searchParams.set('q', `${model.brand} ${baseReference(model.reference)}`);
   url.searchParams.set('category_ids', '31387');
   url.searchParams.set('limit', '50');
+  if (filter) url.searchParams.set('filter', filter);
   const data: EbaySearchResponse = JSON.parse(
-    await safeFetch(url.href, {
-      headers: { Authorization: `Bearer ${auth.access_token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplace },
-    }),
+    await safeFetch(url.href, { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplace } }),
   );
   if (data.errors?.length) throw new CollectorError('upstream_error', 'eBay returned an API error.');
   return parseEbayListings(data, model);
+}
+
+/** Browse API search on one eBay site (all conditions). */
+export async function searchEbay(model: Model & { family?: string }, { host, id, secret, marketplace }: EbayKeys) {
+  return browseSearch(model, host, await ebayToken({ host, id, secret }), marketplace);
+}
+
+/**
+ * eBay sites searched for new-watch prices, one per region: the US; Germany, France and Italy (EU); Hong Kong and
+ * Singapore (Asia). Each listing's item location decides its region, not the site.
+ */
+export const NEW_PRICE_MARKETPLACES = ['EBAY_US', 'EBAY_DE', 'EBAY_FR', 'EBAY_IT', 'EBAY_HK', 'EBAY_SG'];
+
+/**
+ * New-watch offers from business sellers (condition "New", eBay condition 1000) across NEW_PRICE_MARKETPLACES,
+ * for the new-price comparison. Production keys only: sandbox listings are test data.
+ */
+export async function collectEbayNewOffers(model: Model & { family?: string }, secrets: EbaySecrets): Promise<CollectorResult> {
+  const name = 'eBay new (dealers)';
+  if (secrets.EBAY_ENVIRONMENT === 'sandbox' || !secrets.EBAY_CLIENT_ID || !secrets.EBAY_CLIENT_SECRET)
+    return { listings: [], sources: [{ id: 'ebay-new', name, status: 'credentials_required', count: 0, message: 'New-watch prices from eBay dealers in the US, EU and Asia start once the production eBay keyset is enabled.' }] };
+  const host = 'api.ebay.com';
+  try {
+    const token = await ebayToken({ host, id: secrets.EBAY_CLIENT_ID, secret: secrets.EBAY_CLIENT_SECRET });
+    const sites = await Promise.allSettled(NEW_PRICE_MARKETPLACES.map((m) => browseSearch(model, host, token, m, 'conditionIds:{1000},buyingOptions:{FIXED_PRICE}')));
+    const offers = new Map<string, LiveListing>();
+    for (const site of sites)
+      if (site.status === 'fulfilled')
+        for (const l of site.value) if (l.condition === 'new' && l.sellerType === 'dealer' && !offers.has(l.url)) offers.set(l.url, l);
+    const failed = sites.filter((x) => x.status === 'rejected').length;
+    if (failed === sites.length) throw (sites[0] as PromiseRejectedResult).reason;
+    const listings = [...offers.values()];
+    return { listings, sources: [{ id: 'ebay-new', name, status: failed ? 'error' : 'ok', count: listings.length, message: `New, fixed-price offers from business sellers on eBay US, DE, FR, IT, HK and SG.${failed ? ` ${failed} site(s) unavailable.` : ''}` }] };
+  } catch (e) {
+    const message = errorMessage(e, 'eBay request failed');
+    return { listings: [], sources: [{ id: 'ebay-new', name, status: /HTTP 401/.test(message) ? 'credentials_required' : failureStatus(e), count: 0, message }] };
+  }
 }
 
 export async function collectEbay(

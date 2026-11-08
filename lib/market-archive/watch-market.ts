@@ -15,8 +15,9 @@ import {
 } from '../collectors';
 import type { Model } from '../market';
 import { forumArchive } from './forum-feeds';
-import { mergeListings, reclassifyListings, type ArchivedListing } from './listings';
+import { mergeListings, mergeOffers, reclassifyListings, type ArchivedListing } from './listings';
 import { collectShops } from '../collectors/services/shops';
+import { collectEbayNewOffers } from '../collectors/services/ebay';
 
 export const MARKET_OWNER = '__market__';
 
@@ -72,11 +73,12 @@ export async function watchMarket(model: Model, owner = MARKET_OWNER, refresh = 
     throw new Error('This watch is being collected. Try again shortly.');
   }
   try {
-    const [live, auction, moreAuctions, shops, ...forums] = await Promise.allSettled([
+    const [live, auction, moreAuctions, shops, newOffers, ...forums] = await Promise.allSettled([
       fetchLiveListings(model, env),
       collectPhillips(model),
       collectAuctionSources(model),
       collectShops(model),
+      collectEbayNewOffers(model, env),
       ...FORUM_FEEDS.map(forumArchive),
     ]);
     const listings = live.status === 'fulfilled' ? live.value.listings : [];
@@ -107,6 +109,7 @@ export async function watchMarket(model: Model, owner = MARKET_OWNER, refresh = 
       listings.push(...shops.value.listings);
       sources.push(...shops.value.sources);
     } else sources.push({ id: 'shops', name: 'Watch shops', status: 'error', count: 0, message: 'Shop prices unavailable; previous observations retained.' });
+    if (newOffers.status === 'fulfilled') sources.push(...newOffers.value.sources);
     if (auction.status === 'fulfilled') {
       listings.push(...auction.value.listings);
       sources.push(auction.value.source);
@@ -164,7 +167,7 @@ export async function watchMarket(model: Model, owner = MARKET_OWNER, refresh = 
       fetchedAt: new Date().toISOString(), // Persistently blocked sources are reported but do not shorten the cache: only transient failures retry sooner.
       partial: sources.some((s) => s.status === 'error'),
       listings: mergeListings(previous?.listings || [], listings),
-      retailOffers: mergeListings(previous?.retailOffers || [], shops.status === 'fulfilled' ? shops.value.retailOffers : []),
+      retailOffers: mergeOffers(previous?.retailOffers || [], [...(shops.status === 'fulfilled' ? shops.value.retailOffers : []), ...(newOffers.status === 'fulfilled' ? newOffers.value.listings : [])]),
       sources,
       threads,
       note: 'Complete-reference matches and same-reference listings that do not state the variant enter the market price; the latter are labelled. Similar models are separate. Missing listings retain their last observed status; disappearance never proves a sale.',

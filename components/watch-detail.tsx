@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, ChevronRight, ChevronsRight, ExternalLink, Info, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
-import { brandSiteFor, convertPrice, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
+import { brandSiteFor, convertPrice, countries, defaultSources, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors/matching/reference';
 import { exactMatch } from '../lib/collectors/matching/classify';
@@ -67,6 +67,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [specsOpen, setSpecsOpen] = useState(false);
   const [variants, setVariants] = useState<Model[]>([]);
   const [allVariants, setAllVariants] = useState(false);
+  const [newRegion, setNewRegion] = useState('Global');
 
   useEffect(() => {
     if (model) return;
@@ -239,6 +240,24 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   }).sort((a, b) => a.price - b.price);
   const currentShopOffers = shopOffers.filter((l) => !l.archived);
   const cheapestShop = currentShopOffers[0];
+  // Average new price across the shops currently offering this watch (each offer once; used listings excluded).
+  const shopAverage = currentShopOffers.length ? currentShopOffers.reduce((sum, l) => sum + l.price, 0) / currentShopOffers.length : null;
+  const shopNames = [...new Set(currentShopOffers.map((l) => sourceName(l.sourceId)))];
+  // New price by region: an offer's item location, or the shop's home country when the offer has none.
+  const offerCountry = (l: LiveListing) => (l.country !== 'UNKNOWN' ? l.country : defaultSources.find((s) => s.id === l.sourceId)?.country || 'UNKNOWN');
+  const newRegions: [string, string][] = [['Global', 'All'], ['EU', 'EU'], ['US', 'US'], ['Asia', 'Asia']];
+  const offersIn = (r: string) => shopOffers.filter((l) => r === 'Global' || inRegion(offerCountry(l), r));
+  const newAverage = (r: string) => {
+    const now = offersIn(r).filter((l) => !l.archived);
+    return { n: now.length, value: now.length ? now.reduce((sum, l) => sum + l.price, 0) / now.length : null };
+  };
+  // Each offer's daily prices (converted at today's rate), so a shop's price change shows as movement in the graph.
+  const newHistory = offersIn(newRegion).flatMap((l) =>
+    (l.history?.length ? l.history : [{ date: l.observedAt, price: l.originalPrice ?? l.price }]).flatMap((h) => {
+      const price = toCur(h.price, l.originalCurrency || l.currency);
+      return price === null || !periodOk(h.date) ? [] : [{ date: h.date, price }];
+    }),
+  );
   const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
   const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length }));
@@ -384,9 +403,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               )}
             </div>
             <div className="price-row">
-              <div><h3>Shop price (new)</h3><p>{cheapestShop ? `${sourceName(cheapestShop.sourceId)}${allDials ? ' · all dials' : ''} · current advertised offer` : liveState === 'loading' ? 'Checking watch shops…' : 'No current matching shop offer'}</p></div>
+              <div><h3>Shop price (new)</h3><p>{cheapestShop ? `Average of ${currentShopOffers.length} in-stock offer${currentShopOffers.length === 1 ? '' : 's'} · ${shopNames.join(', ')}${allDials ? ' · all dials' : ''}` : liveState === 'loading' ? 'Checking watch shops…' : 'No current matching shop offer'}</p></div>
               <div className="price-value">
-                {cheapestShop ? <><a href={cheapestShop.url} target="_blank" rel="noreferrer"><strong>{money(cheapestShop.price, prefs.currency)}</strong> <ArrowUpRight size={13} /></a><small>{currentShopOffers.length} matching offer{currentShopOffers.length === 1 ? '' : 's'} · excludes used listings</small></> : <strong>—</strong>}
+                {cheapestShop && shopAverage !== null ? <><strong>{money(shopAverage, prefs.currency)}</strong><small>lowest <a href={cheapestShop.url} target="_blank" rel="noreferrer">{money(cheapestShop.price, prefs.currency)} at {sourceName(cheapestShop.sourceId)} <ArrowUpRight size={11} /></a></small></> : <strong>—</strong>}
               </div>
             </div>
             <div className="price-row market">
@@ -472,6 +491,33 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
           )}
         </div>
+      </section>
+
+      <section className="panel new-price">
+        <div className="chart-card-head">
+          <div>
+            <h2>New price</h2>
+            <p>Watch shops and dealers selling this reference new · separate from the pre-owned market</p>
+          </div>
+        </div>
+        <div className="region-tabs" role="tablist" aria-label="New price region">
+          {newRegions.map(([r, label]) => {
+            const { n, value } = newAverage(r);
+            return (
+              <button key={r} role="tab" aria-selected={newRegion === r} className={newRegion === r ? 'active' : ''} onClick={() => setNewRegion(r)}>
+                {label}
+                <small>{value === null ? 'no offers' : `${money(value, prefs.currency)} · ${n}`}</small>
+              </button>
+            );
+          })}
+        </div>
+        {newHistory.length ? (
+          <PriceHistory prices={newHistory} currency={prefs.currency} period={prefs.period} method={prefs.method} />
+        ) : (
+          <p className="muted-line">
+            No new-watch offers {newRegion === 'Global' ? 'yet' : `in ${newRegions.find(([r]) => r === newRegion)?.[1]} yet`}. Shops checked: Laatukellot (Finland), Keskisen Kello (Finland); eBay dealers in the US, EU and Asia once the eBay keys are enabled.
+          </p>
+        )}
       </section>
 
       <section className="panel chart-card">

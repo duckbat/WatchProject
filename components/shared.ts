@@ -7,7 +7,7 @@ export type Prefs = { region: string; currency: string; basis: string; method: s
 export type ModalKind = '' | 'owned' | 'observation' | 'source' | 'model' | 'about';
 export type BrandFacet = { brand: string; count: number };
 export type Me = { user: { name: string | null; email: string; displayName: string } | null; signOutPath?: string; signInPath?: string };
-export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; matchDetails?: string; identity?: import('../lib/collectors/core/listing').ListingIdentity; canonicalUrl?: string; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
+export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; matchDetails?: string; history?: { date: string; price: number }[]; identity?: import('../lib/collectors/core/listing').ListingIdentity; canonicalUrl?: string; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
 export type SourceStatus = { id: string; name: string; status: 'ok' | 'error' | 'credentials_required' | 'blocked'; count: number; message?: string; searchUrl?: string };
 export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; retailOffers?: LiveListing[]; sources: SourceStatus[]; threads?: { title: string; url: string; date: string; source: string }[] };
 

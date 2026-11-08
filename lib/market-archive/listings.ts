@@ -4,7 +4,10 @@ import { classifyMatch } from '../collectors/matching/classify';
 import { classifyIdentity } from '../collectors/matching/structured';
 import type { Model } from '../market';
 
-export type ArchivedListing = LiveListing & { archived?: boolean; firstSeenAt?: string; lastSeenAt?: string };
+/** history: shop offers only, one price per day the offer was seen (oldest first), for the new-price graph. */
+export type ArchivedListing = LiveListing & { archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; history?: { date: string; price: number }[] };
+
+const MAX_HISTORY = 400;
 
 // Keep old .fi observations under the same key as the corrected marketplace links.
 function currentListing(l: ArchivedListing): ArchivedListing {
@@ -32,6 +35,24 @@ export function listingKind(l: {
         : l.archived
           ? 'asking'
           : 'live';
+}
+
+/**
+ * Shop offers merged like listings, plus a daily price history: a shop changing its price is new-price movement,
+ * not a new offer. Offers no longer returned keep their history and are marked archived.
+ */
+export function mergeOffers(previous: ArchivedListing[], incoming: LiveListing[], now = new Date().toISOString()): ArchivedListing[] {
+  const today = now.slice(0, 10);
+  const before = new Map(previous.map((l) => [l.canonicalUrl || l.url, l]));
+  return mergeListings(previous, incoming, now).map((l) => {
+    if (l.archived) return l;
+    const old = before.get(l.canonicalUrl || l.url);
+    // Offers archived before history existed start from their last observed price.
+    const history = old?.history ? [...old.history] : old ? [{ date: old.observedAt, price: old.price }] : [];
+    if (history.at(-1)?.date === today) history[history.length - 1] = { date: today, price: l.price };
+    else history.push({ date: today, price: l.price });
+    return { ...l, history: history.slice(-MAX_HISTORY) };
+  });
 }
 
 /** Absence from a search never establishes that a watch sold. */

@@ -8,7 +8,7 @@ export const catalog = [
 ];
 export const defaultSources = [
  {id:"kellotux",name:"Kellotux.com",url:"https://kellotux.com",country:"FI",mode:"Automatic used-market listings"},
- {id:"laatukellot",name:"Laatukellot.fi",url:"https://www.laatukellot.fi",country:"",mode:"Automatic new and used shop prices"},
+ {id:"laatukellot",name:"Laatukellot.fi",url:"https://www.laatukellot.fi",country:"FI",mode:"Automatic new and used shop prices"},
  {id:"keskisenkello",name:"Keskisen Kello",url:"https://www.keskisenkello.fi",country:"FI",mode:"Automatic new-watch shop prices"},
  {id:"huuto",name:"Huuto.net sold listings",url:"https://www.huuto.net",country:"FI",mode:"Automatic public sold evidence"},
  {id:"phillips",name:"Phillips auctions",url:"https://www.phillips.com",country:"",mode:"Automatic auction results"},
@@ -20,6 +20,7 @@ export const defaultSources = [
  {id:"cheffins",name:"Cheffins",url:"https://fineart.cheffins.co.uk",country:"",mode:"Not connected · access challenge"},
  {id:"bonhams",name:"Bonhams",url:"https://www.bonhams.com",country:"",mode:"Not connected · collector unverified"},
  {id:"chrono24",name:"Chrono24",url:"https://www.chrono24.com",country:"",mode:"Manual observations"},
+ {id:"ebay-new",name:"eBay new (dealers)",url:"https://www.ebay.com",country:"",mode:"Automatic new-watch dealer prices"},
  {id:"ebay",name:"eBay",url:"https://www.ebay.com",country:"",mode:"Manual observations"},
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},
  {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Automatic asking prices"},
