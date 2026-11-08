@@ -4,6 +4,7 @@ import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronRight, Extern
 import { brandSiteFor, convertPrice, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors';
+import { listingKind } from '../lib/listing-archive';
 import PriceScatter, { type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
 import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
@@ -164,7 +165,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
 
   const points: ChartPoint[] = [
     ...savedShown.filter((e) => !(e.data.observedAt === today() && exactIn.some((l) => l.url === e.data.url))).map((e) => ({ id: e.id, date: e.data.observedAt, price: e.data.price, kind: e.data.status as ChartPoint['kind'], title: ((e.data as any).title || `${model.brand} ${model.reference}`) + ((e.data as any).originalCurrency ? ` (converted from ${money((e.data as any).originalPrice, (e.data as any).originalCurrency)})` : ''), url: e.data.url || undefined, source: sourceName(e.data.sourceId), country: countries[e.data.country] || e.data.country })),
-    ...[...exactIn.map((l) => ({ l, kind: l.status === 'sold-asking' ? ('sold-asking' as const) : ('live' as const) })), ...similarIn.map((l) => ({ l, kind: 'similar' as const }))].map(({ l, kind }) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt, price: l.price, kind, title: l.title + (l.originalCurrency ? ` (converted from ${money(l.originalPrice!, l.originalCurrency)})` : ''), url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
+    ...[...exactIn, ...similarIn].map((l) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt && !l.archived, price: l.price, kind: listingKind(l), title: l.title + (l.originalCurrency ? ` (converted from ${money(l.originalPrice!, l.originalCurrency)})` : ''), url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
   ];
 
   const regional = regions.filter(([r]) => r !== 'Global').map(([r, name]) => {
@@ -179,7 +180,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const regionOk = (country: string) => inRegion(country, prefs.region);
   const metricPrices: MetricPrice[] = [
     ...saved.filter((e) => e.data.currency === prefs.currency && regionOk(e.data.country) && !exact.some((l) => e.data.url && l.url === e.data.url)).map((e) => ({ date: e.data.observedAt, price: e.data.price, status: e.data.status, condition: e.data.condition, contents: e.data.contents, sellerType: e.data.sellerType })),
-    ...exact.filter((l) => l.currency === prefs.currency && regionOk(l.country)).map((l) => ({ date: l.listedAt || l.observedAt, price: l.price, status: l.status, condition: l.condition, contents: l.contents, sellerType: l.sellerType, active: l.status === 'asking' && l.sourceId !== 'reddit', listedAt: l.listedAt })),
+    ...exact.filter((l) => l.currency === prefs.currency && regionOk(l.country)).map((l) => ({ date: l.listedAt || l.observedAt, price: l.price, status: l.status, condition: l.condition, contents: l.contents, sellerType: l.sellerType, active: !l.archived && l.status === 'asking' && (l.sourceId === 'tori' || l.sourceId === 'ebay'), listedAt: l.listedAt })),
   ];
   const retails = entries.filter((e) => e.kind === 'retail' && e.data.modelId === modelId).sort((a, b) => String(b.data.asOf).localeCompare(String(a.data.asOf)));
   const retail = retails.find((e) => e.data.currency === prefs.currency);
@@ -216,9 +217,10 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <div className="listing-body">
           <span className="listing-source">{sourceName(l.sourceId)} · {countries[l.country] || l.country}{l.condition !== 'unknown' ? ` · ${l.condition === 'new' ? 'New' : 'Pre-owned'}` : ''}</span>
           <a className="listing-title" href={l.url} target="_blank" rel="noreferrer">{l.title}</a>
-          <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}{l.status === 'sold-asking' && <span className="tag sold-tag">Sold</span>}</strong>
+          <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}<span className={`tag${l.status !== 'asking' ? ' sold-tag' : ''}`}>{l.status === 'confirmed-sale' ? 'Reported sale' : l.status === 'sold-asking' ? 'Sold · last ask' : l.archived ? 'Asking · last observed' : 'Asking'}</span></strong>
+          {l.archived && l.lastSeenAt && <span className="listing-source">Last seen {fmtDate(l.lastSeenAt.slice(0, 10))} · availability not reverified</span>}
           {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
-          {l.listedAt && <span className="listing-source">{l.sourceId === 'tori' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+          {l.listedAt && <span className="listing-source">{l.status === 'confirmed-sale' ? 'Auction ended' : l.sourceId === 'tori' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
           <div className="listing-actions">
             <a className="secondary" href={l.url} target="_blank" rel="noreferrer">
               View listing <ArrowUpRight size={13} />
@@ -364,7 +366,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 ? liveError
                 : (
                   <>
-                    Live from {live?.sources.filter((s) => s.status === 'ok').map((s) => s.name).join(', ') || 'no sources'} · updated {live && ago(live.fetchedAt)}
+                    Checked {live?.sources.filter((s) => s.status === 'ok').map((s) => s.name).join(', ') || 'no sources'} · updated {live && ago(live.fetchedAt)}
                     {convertedCount > 0 && fx && <> · other currencies converted at ECB rates of {fx.date}</>}
                     {otherCurrency > 0 && (
                       <>
@@ -443,7 +445,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               <FilterBar prefs={prefs} onPrefs={onPrefs} extended />
             </div>
             {chartPoints.length ? (
-              <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} />
+              <><PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} /><p className="fine">Matches use base reference {baseReference(model.reference)}; dial and bracelet variants may differ. Auction results are reported sale amounts. Sold · last ask is an advertised price, not the negotiated sale amount. Last-observed asking prices do not confirm current availability.</p></>
             ) : (
               <div className="chart-empty">
                 <div className="empty-chart-lines" />
@@ -464,7 +466,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <div className="section-head">
           <div>
             <h2>Listings for this reference <span className="count-pill">{exactIn.length}</span></h2>
-            <p>Listings that name this exact reference, newest first (Tori.fi live, plus r/Watchexchange and eBay when connected). Bookmark one to add it to your price history.</p>
+            <p>Automatically collected asking prices and reported sales, newest first. Listings are retained in your archive when a source stops returning them.</p>
           </div>
         </div>
         {liveState === 'loading' && !live ? (
@@ -472,7 +474,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         ) : exactIn.length ? (
           <div className="listing-grid">{sortedExact.map((l) => <ListingCard key={l.url} l={l} />)}</div>
         ) : (
-          <p className="muted-line">No exact-reference listings are live in {prefs.currency}{prefs.region !== 'Global' ? ` for ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''} right now.</p>
+          <p className="muted-line">No exact-reference listings match these filters in {prefs.currency}{prefs.region !== 'Global' ? ` for ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''}.</p>
         )}
         {(live?.threads?.length ?? 0) > 0 && (
           <div className="similar-block">

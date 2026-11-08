@@ -138,7 +138,7 @@ export function SourcesView({ sources, onModal, onImport }: { sources: Source[];
         <div>
           <p className="eyebrow">PROFILE</p>
           <h1>Marketplace sources</h1>
-          <p className="subtitle">Where prices come from. Tori.fi is checked live on every watch page. r/Watchexchange is searched through Reddit’s public RSS feed. eBay needs free API keys (see MARKETPLACES.md). Chrono24 and Facebook groups can’t be searched automatically, so use the Save to WatchLedger button below; Chrono24 prices show its 6.95% fee.</p>
+          <p className="subtitle">Where prices come from. Tori.fi supplies asking prices and Phillips supplies reported auction sales. Listings are archived automatically. Reddit’s public RSS is temporary and retires November 13, 2026. eBay needs free API keys (see MARKETPLACES.md). Chrono24 and Facebook groups can’t be searched automatically, so use the Save to WatchLedger button below; Chrono24 prices show its 6.95% fee.</p>
         </div>
         <button className="primary" onClick={() => onModal('source')}><Plus size={16} />Add source</button>
       </div>
@@ -147,7 +147,7 @@ export function SourcesView({ sources, onModal, onImport }: { sources: Source[];
           <article className="source-card" key={s.id}>
             <div className="source-top">
               <span className="source-monogram">{s.name.slice(0, 1)}</span>
-              <span className="tag">{s.id === 'tori' ? 'Live on watch pages' : s.id === 'reddit' ? 'Live via RSS' : s.id === 'ebay' ? 'API keys needed' : s.id === 'chrono24' ? 'Save button · 6.95% fee shown' : s.id === 'facebook' || s.id === 'web' ? 'Save button' : 'Manual'}</span>
+              <span className="tag">{s.id === 'phillips' ? 'Automatic reported sales' : s.id === 'tori' ? 'Automatic asking prices' : s.id === 'reddit' ? 'RSS retiring Nov 13' : s.id === 'ebay' ? 'API keys needed' : s.id === 'chrono24' ? 'Save button · 6.95% fee shown' : s.id === 'facebook' || s.id === 'web' ? 'Save button' : 'Manual'}</span>
             </div>
             <h2>{s.name}</h2>
             <p>{s.country ? countries[s.country] : 'Multiple regions'}</p>

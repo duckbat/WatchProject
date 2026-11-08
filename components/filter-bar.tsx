@@ -15,7 +15,7 @@ type Props = {
 export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, extended }: Props) {
   const set = (k: keyof Prefs) => (e: React.ChangeEvent<HTMLSelectElement>) => onPrefs({ ...prefs, [k]: e.target.value });
   const changed = (['region', 'basis', 'method', 'condition', 'seller'] as const).some(
-    (k) => prefs[k] !== ({ region: 'Global', currency: 'EUR', basis: 'asking', method: 'median', condition: 'all', seller: 'all' } as Prefs)[k],
+    (k) => prefs[k] !== ({ region: 'Global', currency: 'EUR', basis: 'all', method: 'median', condition: 'all', seller: 'all' } as Prefs)[k],
   );
   return (
     <div className="filter-bar" role="group" aria-label="Filters">
@@ -39,7 +39,7 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
           ))}
         </select>
       </label>
-      <label className={`filter-pill${prefs.basis !== 'asking' ? ' on' : ''}`}>
+      <label className={`filter-pill${prefs.basis !== 'all' ? ' on' : ''}`}>
         <select aria-label="Price type" value={prefs.basis} onChange={set('basis')}>
           {Object.entries(statuses).map(([v, l]) => (
             <option key={v} value={v}>{l}</option>
@@ -83,7 +83,7 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
           type="button"
           className="filter-reset"
           onClick={() => {
-            onPrefs({ ...prefs, region: 'Global', basis: 'asking', method: 'median', condition: 'all', seller: 'all' });
+            onPrefs({ ...prefs, region: 'Global', basis: 'all', method: 'median', condition: 'all', seller: 'all' });
             onBrand?.('');
           }}
         >

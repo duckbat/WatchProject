@@ -34,7 +34,7 @@ export default function Home() {
     setReady(true);
     try {
       const p = JSON.parse(localStorage.getItem(PREFS_KEY) || "null");
-      if (p) setPrefsState({ ...defaultPrefs, ...p });
+      if (p) setPrefsState({ ...defaultPrefs, ...p, basis: p.priceTypesVersion === 2 ? p.basis : "all" });
       setRecentIds(JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"));
     } catch {}
     const onPop = () => setRoute(parseRoute(location.search));
@@ -49,7 +49,7 @@ export default function Home() {
   }, []);
   const setPrefs = (p: Prefs) => {
     setPrefsState(p);
-    try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {}
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...p, priceTypesVersion: 2 })); } catch {}
   };
 
   // ---- Data ----

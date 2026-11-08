@@ -7,9 +7,9 @@ export type ChartKind = 'live' | 'similar' | 'asking' | 'confirmed-sale' | 'sold
 export type ChartPoint = { id: string; date: string; price: number; kind: ChartKind; title: string; url?: string; source: string; country: string; undated?: boolean };
 
 export const kindStyle: Record<ChartKind, { label: string; color: string; hollow?: boolean }> = {
-  live: { label: 'Unsold', color: 'var(--c-asking)' },
-  asking: { label: 'Unsold (saved)', color: '#7ea6e6' },
-  'confirmed-sale': { label: 'Sold', color: 'var(--c-sold)' },
+  live: { label: 'Asking', color: 'var(--c-asking)' },
+  asking: { label: 'Asking (last observed)', color: '#7ea6e6' },
+  'confirmed-sale': { label: 'Reported sale', color: 'var(--c-sold)' },
   'sold-asking': { label: 'Sold (last ask)', color: '#f2a07b' },
   similar: { label: 'Similar models', color: 'var(--c-similar)', hollow: true },
 };
@@ -147,7 +147,7 @@ export default function PriceScatter({ points, currency, period, marketPrice }: 
             <span className="tip-kind" style={{ color: kindStyle[hovered.p.kind].color }}>{kindStyle[hovered.p.kind].label}</span>
             <strong>{money(hovered.p.price, currency)}</strong>
             <p>{hovered.p.title}</p>
-            <small>{hovered.p.source} · {hovered.p.country} · {hovered.p.undated ? 'date unknown' : `listed ${hovered.p.date}`}</small>
+            <small>{hovered.p.source} · {hovered.p.country} · {hovered.p.undated ? 'date unknown' : `${hovered.p.kind === 'confirmed-sale' ? 'auction ended' : 'observed / listed'} ${hovered.p.date}`}</small>
             {hovered.p.url && (
               <a href={hovered.p.url} target="_blank" rel="noreferrer">
                 Go to listing <ArrowUpRight size={13} />

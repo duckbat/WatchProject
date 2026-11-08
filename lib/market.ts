@@ -7,6 +7,7 @@ export const catalog = [
  {id:"grandseiko-sbga211",brand:"Grand Seiko",name:"Snowflake",reference:"SBGA211",color:"#d4dbe0",size:"41 mm"},
 ];
 export const defaultSources = [
+ {id:"phillips",name:"Phillips auctions",url:"https://www.phillips.com",country:"",mode:"Automatic auction results"},
  {id:"chrono24",name:"Chrono24",url:"https://www.chrono24.com",country:"",mode:"Manual observations"},
  {id:"ebay",name:"eBay",url:"https://www.ebay.com",country:"",mode:"Manual observations"},
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},

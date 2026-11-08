@@ -31,6 +31,7 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 
 | Source | Current support |
 | --- | --- |
+| Phillips | Automatic public auction results: verifies brand/reference on lot pages, imports reported sale amounts and auction end dates. Up to eight sold lots from the first search page. |
 | Tori.fi | On-demand collection of public asking prices, with exact brand/reference matching and review before saving. |
 | eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
 | Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; save listings with the **Save to WatchLedger** button or record them manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
@@ -40,7 +41,7 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 | Any website | **Save to WatchLedger** browser button: reads the listing you are viewing (structured price data or selected text) and adds it to your history. |
 | Custom marketplaces | Save a source name and link, then record observations manually. Adding a link does not create a scraper. |
 
-Collection runs on demand, not on a background schedule. Price history grows from saved observations; historical market data is not preloaded. Asking prices, confirmed sales, and the last asking price of a sold watch are kept distinct. Different currencies are never combined or automatically converted.
+Collection runs when a watch is opened; a protected refresh endpoint also supports unattended updates. Marketplace listings are retained automatically in D1; missing listings keep their last observed status rather than being marked sold. Price history also includes saved observations; historical market data is not preloaded. Asking prices, confirmed sales, and the last asking price of a sold watch are kept distinct. Different currencies are never combined or automatically converted.
 
 ## Catalog and photos
 
