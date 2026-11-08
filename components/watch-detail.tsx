@@ -5,6 +5,7 @@ import { brandSiteFor, convertPrice, countries, facebookGroupSearchUrl, feeBreak
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors/matching/reference';
 import { exactMatch } from '../lib/collectors/matching/classify';
+import { classifyIdentity } from '../lib/collectors/matching/structured';
 import { expectedDial, namesDial } from '../lib/collectors/matching/dial';
 import { listingKind } from '../lib/market-archive/listings';
 import PriceScatter, { type ChartPoint } from './price-scatter';
@@ -159,7 +160,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const dialKnown = expectedDial(model.name).size === 1;
   const counts = (l: LiveListing) =>
     allDials
-      ? l.match !== 'similar' || exactMatch(l.title, { brand: model.brand, reference: base }, l.matchDetails)
+      ? l.identity ? ['exact', 'reference'].includes(classifyIdentity(l.title, { ...model, reference: base, name: model.name.split('/')[0] }, l.identity, l.matchDetails) || '') : l.match !== 'similar' || exactMatch(l.title, { brand: model.brand, reference: base }, l.matchDetails)
       : l.match === 'exact' || (l.match === 'reference' && (!hasVariants || !dialKnown || namesDial(`${l.title} ${l.matchDetails || ''}`, model.name)));
   // Listings counted only because of the scope are shown as same-reference listings.
   const exact = listings.filter(counts).map((l) => (l.match === 'similar' ? { ...l, match: 'reference' as const } : l));
@@ -172,7 +173,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const periodOk = (d: string) => prefs.period === '36500' || d >= periodStart(prefs.period);
   const isSold = (status: string) => status === 'sold-asking' || status === 'confirmed-sale';
   const exactUrls = new Set(exact.map((l) => l.url));
-  const classifieds = new Set(['tori', 'finn', 'blocket', 'dba', 'ebay']);
+  const classifieds = new Set(['tori', 'finn', 'blocket', 'dba', 'ebay', 'kellotux', 'laatukellot']);
   const candidates = dedupeCrossPosts([
     // Active marketplace listings count as current; forum posts count on their post date.
     ...exact.map((l) => ({ ...l, date: l.status === 'asking' && classifieds.has(l.sourceId) ? l.observedAt : l.listedAt || l.observedAt })).filter((l) => inScope(l) && periodOk(l.date)).map((l) => ({ price: l.price, status: l.status, date: l.date, title: l.title, variant: l.match === 'exact', converted: Boolean(l.originalCurrency) })),
@@ -183,9 +184,12 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const { kept: pool, dropped: outliers } = withoutOutliers(variantOnly ? candidates.filter((p) => p.variant) : candidates, (p) => p.price);
   const nReference = pool.filter((p) => !p.variant).length;
   const soldPool = pool.filter((p) => isSold(p.status));
+  const reportedSales = soldPool.filter((p) => p.status === 'confirmed-sale');
+  const soldAsks = soldPool.filter((p) => p.status === 'sold-asking');
   const marketPrice = summarize(pool.map((p) => p.price), prefs.method);
-  const soldPrice = summarize(soldPool.map((p) => p.price), prefs.method);
-  const lastSold = soldPool.map((p) => p.date).sort().at(-1) || null;
+  const soldPrice = summarize(reportedSales.map((p) => p.price), prefs.method);
+  const soldAskPrice = summarize(soldAsks.map((p) => p.price), prefs.method);
+  const lastSold = reportedSales.map((p) => p.date).sort().at(-1) || null;
   const rangeLabel = periods.find(([v]) => v === prefs.period)?.[1];
   const nConverted = pool.filter((p) => p.converted).length;
   const marketBasis = pool.length
@@ -229,6 +233,12 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   ];
   const retails = entries.filter((e) => e.kind === 'retail' && e.data.modelId === modelId).sort((a, b) => String(b.data.asOf).localeCompare(String(a.data.asOf)));
   const retail = retails.find((e) => e.data.currency === prefs.currency);
+  const shopOffers = (live?.retailOffers || []).filter(counts).flatMap((l) => {
+    const price = toCur(l.price, l.currency);
+    return price === null ? [] : [{ ...l, price, currency: prefs.currency, originalPrice: l.price, originalCurrency: l.currency }];
+  }).sort((a, b) => a.price - b.price);
+  const currentShopOffers = shopOffers.filter((l) => !l.archived);
+  const cheapestShop = currentShopOffers[0];
   const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
   const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length }));
@@ -268,7 +278,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}<span className={`tag${l.status !== 'asking' ? ' sold-tag' : ''}`}>{l.status === 'confirmed-sale' ? 'Reported sale' : l.status === 'sold-asking' ? 'Sold · last ask' : l.archived ? 'Asking · last observed' : 'Asking'}</span></strong>
           {l.archived && l.lastSeenAt && <span className="listing-source">Last seen {fmtDate(l.lastSeenAt.slice(0, 10))} · availability not reverified</span>}
           {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
-          {l.listedAt && <span className="listing-source">{l.status === 'confirmed-sale' ? 'Auction ended' : classifieds.has(l.sourceId) && l.sourceId !== 'ebay' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+          {l.listedAt && <span className="listing-source">{l.sourceId === 'huuto' ? 'Sold listing closed' : l.status === 'confirmed-sale' ? 'Auction ended' : classifieds.has(l.sourceId) && l.sourceId !== 'ebay' ? 'Updated' : 'Listed'} {fmtDate(l.listedAt)}</span>}
+          {l.sourceId === 'kellotux' && l.status !== 'asking' && !l.listedAt && <span className="listing-source">Sold status observed {fmtDate(l.observedAt)} · sale date unavailable</span>}
           <div className="listing-actions">
             <a className="secondary" href={l.url} target="_blank" rel="noreferrer">
               View listing <ArrowUpRight size={13} />
@@ -341,7 +352,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <div className="price-box">
             <div className="price-row">
               <div>
-                <h3>Retail price <span className="info" title="Price from an authorized retailer. Enter it yourself; it is used for value retention." role="img" aria-label="About retail price"><Info size={13} /></span></h3>
+                <h3>Official retail (MSRP) <span className="info" title="Official list price entered or saved by you. It is used for value retention; current shop selling prices are shown separately." role="img" aria-label="About retail price"><Info size={13} /></span></h3>
                 <p>
                   {retail?.data.url ? (
                     <a href={retail.data.url} target="_blank" rel="noreferrer">{retail.data.source || 'Brand site'} <ArrowUpRight size={11} /></a>
@@ -372,10 +383,16 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 </div>
               )}
             </div>
+            <div className="price-row">
+              <div><h3>Shop price (new)</h3><p>{cheapestShop ? `${sourceName(cheapestShop.sourceId)}${allDials ? ' · all dials' : ''} · current advertised offer` : liveState === 'loading' ? 'Checking watch shops…' : 'No current matching shop offer'}</p></div>
+              <div className="price-value">
+                {cheapestShop ? <><a href={cheapestShop.url} target="_blank" rel="noreferrer"><strong>{money(cheapestShop.price, prefs.currency)}</strong> <ArrowUpRight size={13} /></a><small>{currentShopOffers.length} matching offer{currentShopOffers.length === 1 ? '' : 's'} · excludes used listings</small></> : <strong>—</strong>}
+              </div>
+            </div>
             <div className="price-row market">
               <div>
                 <h3>Market price <span className="info" title={marketBasis || 'Median of asking and sold prices for this reference in the selected currency, region and time range. Cross-posts count once; far-off prices are excluded.'} role="img" aria-label="How the market price is calculated"><Info size={13} /></span></h3>
-                <p>{liveState === 'loading' && marketPrice === null ? 'Checking marketplaces…' : marketPrice === null ? (hasVariants && !allDials ? 'No prices for this dial yet' : 'No prices found yet') : `Estimated private sale price${hasVariants ? (allDials ? ' · all dials' : ' · this dial') : ''}`}</p>
+                <p>{liveState === 'loading' && marketPrice === null ? 'Checking marketplaces…' : marketPrice === null ? (hasVariants && !allDials ? 'No prices for this dial yet' : 'No prices found yet') : `Asking prices and published sales${hasVariants ? (allDials ? ' · all dials' : ' · this dial') : ''}`}</p>
               </div>
               <div className="price-value">
                 <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
@@ -385,9 +402,10 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             {soldPrice !== null && (
               <div className="price-foot">
                 <BadgeCheck size={16} />
-                <span>Sold for <strong>{money(soldPrice, prefs.currency)}</strong> ({prefs.method} of {soldPool.length} sale{soldPool.length === 1 ? '' : 's'}{lastSold ? `, last ${fmtDate(lastSold)}` : ''})</span>
+                <span>Reported sales <strong>{money(soldPrice, prefs.currency)}</strong> ({prefs.method} of {reportedSales.length} result{reportedSales.length === 1 ? '' : 's'}{lastSold ? `, latest observation ${fmtDate(lastSold)}` : ''})</span>
               </div>
             )}
+            {soldAskPrice !== null && <div className="price-foot"><span>Sold · last ask <strong>{money(soldAskPrice, prefs.currency)}</strong> ({soldAsks.length} listing{soldAsks.length === 1 ? '' : 's'} · final deal amount unknown)</span></div>}
             {metrics.dealerPrice !== null && (
               <div className="price-foot">
                 <Store size={16} />
@@ -499,6 +517,11 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <MetricsGrid m={metrics} hasRetail={Boolean(retail)} onRetail={() => { setRetailEdit(true); scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </section>
 
+      {shopOffers.length > 0 && <section className="panel">
+        <div className="section-head"><h2>New-watch shop offers <span className="count-pill">{shopOffers.length}</span></h2></div>
+        <p className="muted-line">Current shop selling prices, separate from official MSRP and the used-market graph.</p>
+        <div className="shop-offers">{shopOffers.map((l) => <a key={l.url} className="shop-offer" href={l.url} target="_blank" rel="noreferrer"><span><strong>{sourceName(l.sourceId)}</strong><small>{l.title}{l.archived ? ` · Last observed ${fmtDate((l.lastSeenAt || l.collectedAt).slice(0, 10))}; availability unverified` : ` · Checked ${fmtDate(l.observedAt)}`}</small></span><span><strong>{money(l.price, l.currency)}</strong>{l.originalCurrency !== prefs.currency && <small>Originally {money(l.originalPrice, l.originalCurrency)}</small>}</span><ArrowUpRight size={15} /></a>)}</div>
+      </section>}
       <section className="panel">
         <div className="section-head">
           <h2>Listings <span className="count-pill">{exactIn.length}</span></h2>

@@ -4,6 +4,17 @@ import { conflictingDial, titleDialConflict } from './dial';
 import { partsListing, wanted } from './keywords';
 import { baseReference, compact, titleTokens } from './reference';
 
+function statedReferenceConflict(title: string, model: Pick<Model, 'brand' | 'reference'>) {
+  const norm = (r: string) => compact(/^(rolex|tudor)$/i.test(model.brand) ? r.replace(/^m(?=\d)/i, '') : r);
+  const expected = norm(model.reference), base = norm(baseReference(model.reference));
+  return [...title.matchAll(/\b(?:ref(?:erence)?|viite|referenssi)\s*[.:#-]?\s*([a-z0-9][a-z0-9./-]{3,40})/gi)].some((m) => {
+    if (!/\d/.test(m[1])) return false;
+    const raw = m[1].replace(/[./-]+$/, '');
+    const stated = norm(raw), statedBase = norm(baseReference(raw));
+    return statedBase !== base || (expected !== base && stated !== statedBase && stated !== expected);
+  });
+}
+
 export function exactMatch(
   title: string,
   model: Pick<Model, 'brand' | 'reference'> & Partial<Pick<Model, 'name'>>,
@@ -12,12 +23,15 @@ export function exactMatch(
   const reference = compact(model.reference),
     text = `${title}\n${details}`;
   const tokens = titleTokens(text);
-  const found = tokens.has(reference) || (/^(rolex|tudor)$/i.test(model.brand) && tokens.has(`m${reference}`));
+  const generic = baseReference(model.reference) === model.reference.trim();
+  const variantOfBase = generic && /^(rolex|tudor)$/i.test(model.brand) && new RegExp(`\\bm?${model.reference.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{3,4}\\b`, 'i').test(text);
+  const found = tokens.has(reference) || (/^(rolex|tudor)$/i.test(model.brand) && tokens.has(`m${reference}`)) || variantOfBase;
   return (
     reference.length >= 4 &&
     compact(text).includes(compact(model.brand)) &&
     found &&
     !partsListing(title) &&
+    !statedReferenceConflict(title, model) &&
     !conflictingDial(text, model.name)
   );
 }
@@ -33,7 +47,7 @@ export function referenceMatch(
   details = '',
 ) {
   const base = baseReference(model.reference);
-  if (base === model.reference.trim() || wanted.test(title)) return false;
+  if (base === model.reference.trim() || wanted.test(title) || statedReferenceConflict(title, model)) return false;
   return exactMatch(title, { ...model, reference: base }, details) && !titleDialConflict(title, model.name);
 }
 

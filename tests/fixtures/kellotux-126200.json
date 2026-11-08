@@ -1,0 +1,80 @@
+{
+  "items": [
+    {
+      "id": "uyucxbz80capbez",
+      "brand": "Rolex",
+      "model": "Oyster Perpetual Datejust 36",
+      "reference_number": "126200",
+      "dial_color": "black",
+      "size": 36,
+      "price": 8500,
+      "status": "active",
+      "sold_on_site": false,
+      "sold_price": 0,
+      "created": "2026-10-22 21:01:08.595Z",
+      "content_updated_at": "",
+      "expires_at": "",
+      "deleted": false,
+      "listing_type": "sell",
+      "set_included": "full_set",
+      "source_url": "https://www.kiipperi.fi/tuote/rolex-oyster-perpetual-datejust-36-126200/",
+      "expand": {
+        "user": {
+          "seller_type": "business"
+        }
+      }
+    },
+    {
+      "id": "jzkhoqm1q4r6ozm",
+      "brand": "Rolex",
+      "model": "Datejust 36 Wimbledon",
+      "reference_number": "126200",
+      "dial_color": "gray",
+      "size": 36,
+      "price": 8990,
+      "status": "active",
+      "sold_on_site": false,
+      "sold_price": 0,
+      "created": "2026-09-30 21:41:11.720Z",
+      "content_updated_at": "",
+      "expires_at": "",
+      "deleted": false,
+      "listing_type": "sell",
+      "set_included": "full_set",
+      "source_url": "https://kellokonttori.fi/product/rolex-126200-datejust-36-wimbledon-11-2024/",
+      "expand": {
+        "user": {
+          "seller_type": "business"
+        }
+      }
+    },
+    {
+      "id": "tjqtew9xy4wll2j",
+      "brand": "Rolex",
+      "model": "Datejust",
+      "reference_number": "126200",
+      "dial_color": "green",
+      "size": 36,
+      "price": 10500,
+      "status": "",
+      "sold_on_site": false,
+      "sold_price": 0,
+      "created": "2025-12-09 19:53:29.163Z",
+      "content_updated_at": "",
+      "expires_at": "2026-10-29 06:00:00.000Z",
+      "deleted": false,
+      "listing_type": "sell",
+      "set_included": "full_set",
+      "source_url": "",
+      "expand": {
+        "user": {
+          "seller_type": "business"
+        }
+      }
+    }
+  ],
+  "page": 1,
+  "perPage": 5,
+  "totalItems": 3,
+  "totalPages": 1
+}

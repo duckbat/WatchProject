@@ -138,7 +138,7 @@ export function SourcesView({ sources, onModal, onImport }: { sources: Source[];
         <div>
           <p className="eyebrow">PROFILE</p>
           <h1>Marketplace sources</h1>
-          <p className="subtitle">Nordic marketplaces supply asking prices; WatchRecon and WatchUSeek add sale posts and sold-marked last asking prices. Antiquorum, Christie’s and Phillips supply published auction results when reachable. Christie’s coverage is limited to selected Geneva catalogues. Listings are archived automatically, and each watch shows collection failures. Estimates and bids are never counted as sales. eBay needs API keys; sources marked not connected contribute no automatic prices.</p>
+          <p className="subtitle">Kellotux and Nordic marketplaces supply used-market asking prices. Laatukellot and Keskisen Kello add current shop prices, with new watches shown separately from the used market and official MSRP. Huuto.net, Auctionet, Antiquorum, Christie’s and Phillips add public sold evidence when available; sold-marked last asking prices stay separate from reported sale amounts. Listings are archived automatically and each watch shows collection failures. Estimates, open bids and unavailable shop products are never counted as sales.</p>
         </div>
         <button className="primary" onClick={() => onModal('source')}><Plus size={16} />Add source</button>
       </div>

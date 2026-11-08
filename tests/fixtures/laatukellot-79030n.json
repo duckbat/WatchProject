@@ -1,0 +1,552 @@
+{
+  "products": [
+    {
+      "brand": "Tudor",
+      "model": "M79030N-0003",
+      "name": "Tudor Heritage M79030N-0003",
+      "url": "tudor/black-bay/m79030n-0003/1484760",
+      "type": "used_watch",
+      "available": 1,
+      "pricing": {
+        "rrp": 4040,
+        "sale": 0,
+        "tax_type": "VMB",
+        "rank_score": 21.45,
+        "current_price": 3530,
+        "standard_price": 3530,
+        "discount_percent_rrp": 13,
+        "discount_percent_standard": 0,
+        "vat": {
+          "amount": 0,
+          "rate": null
+        }
+      },
+      "tags": {
+        "box": {
+          "label": "Kotelo",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana (Kunto 4 / 5)"
+        },
+        "brand_category": {
+          "label": "",
+          "value": "midrange",
+          "display": "Midrange"
+        },
+        "case_diameter": {
+          "label": "Koko",
+          "value": 39,
+          "display": "39 mm"
+        },
+        "category": {
+          "label": "Kategoria",
+          "value": "Black Bay",
+          "display": "Black Bay",
+          "url": "/tudor/black-bay",
+          "context": "value"
+        },
+        "condition": {
+          "label": "Kunto",
+          "value": "very_good",
+          "display": "Erittäin hyvä, 4/5",
+          "url": "/popup/pre-owned-conditions"
+        },
+        "dial_color": {
+          "label": "Kellotaulun väri",
+          "value": "black",
+          "display": "Musta"
+        },
+        "gender": {
+          "label": "Tyyli",
+          "value": "mens",
+          "display": "Miesten kello"
+        },
+        "papers": {
+          "label": "Alkuperäinen takuu",
+          "value": 1,
+          "display": "Päivätty 2020-11-18, myönnetty maassa Euroopassa (digitaalinen)",
+          "url": "/popup/product-warranty-pre-owned-detailed",
+          "context": "value"
+        },
+        "warranty_type": {
+          "label": "Takuu",
+          "value": "pre-owned",
+          "display": "1 vuotta jälleenmyyjän takuu",
+          "url": "/popup/product-warranty-pre-owned",
+          "context": "value"
+        },
+        "year": {
+          "label": "Vuosimalli",
+          "value": 2020,
+          "display": "2020"
+        }
+      },
+      "badges": [
+        "new"
+      ],
+      "stock_status": {
+        "stock": 1,
+        "leadtime": 0,
+        "num_sold": 0,
+        "num_stock": 1,
+        "leadtime_view": "0_24_hours",
+        "leadtime_brand": 50,
+        "object_number": "V1065314"
+      }
+    },
+    {
+      "brand": "Tudor",
+      "model": "M79030N-0001",
+      "name": "Tudor Black Bay 58 Musta/Teräs Ø39 mm",
+      "url": "tudor/black-bay/m79030n-0001/316702",
+      "type": "watch",
+      "available": 1,
+      "pricing": {
+        "rrp": 0,
+        "sale": 0,
+        "tax_type": "UNCLEAR",
+        "rank_score": 12.242970480114,
+        "current_price": 4329,
+        "standard_price": 4329,
+        "discount_percent_rrp": 0,
+        "discount_percent_standard": 0,
+        "vat": {
+          "amount": 0,
+          "rate": null
+        }
+      },
+      "tags": {
+        "box": {
+          "label": "Kotelo",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana"
+        },
+        "brand_category": {
+          "label": "",
+          "value": "midrange",
+          "display": "Midrange"
+        },
+        "case_diameter": {
+          "label": "Koko",
+          "value": 39,
+          "display": "39 mm"
+        },
+        "category": {
+          "label": "Kategoria",
+          "value": "Black Bay",
+          "display": "Black Bay",
+          "url": "/tudor/black-bay",
+          "context": "value"
+        },
+        "condition": {
+          "label": "Kunto",
+          "value": "new",
+          "display": "Uusi & käyttämätön",
+          "url": "/popup/pre-owned-conditions"
+        },
+        "dial_color": {
+          "label": "Kellotaulun väri",
+          "value": "black",
+          "display": "Musta"
+        },
+        "gender": {
+          "label": "Tyyli",
+          "value": "mens",
+          "display": "Miesten kello"
+        },
+        "papers": {
+          "label": "Alkuperäinen takuu",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana",
+          "url": "/popup/product-warranty-pre-owned-general",
+          "context": "value"
+        },
+        "warranty_type": {
+          "label": "Takuu",
+          "value": "manufacturer",
+          "display": "5 vuotta valtuutettu maailmanlaajuinen takuu",
+          "url": "/popup/product-warranty-manufacturer",
+          "context": "value"
+        },
+        "year": {
+          "label": "Vuosimalli",
+          "value": 2026,
+          "display": "-"
+        }
+      },
+      "badges": [],
+      "stock_status": {
+        "stock": 1,
+        "leadtime": 8,
+        "num_sold": 1,
+        "num_stock": 0,
+        "leadtime_view": "5_10_days",
+        "leadtime_brand": 50,
+        "object_number": "RH69982"
+      }
+    },
+    {
+      "brand": "Tudor",
+      "model": "M79030N-0001",
+      "name": "Tudor Black Bay 58 M79030N-0001",
+      "url": "tudor/black-bay/m79030n-0001/1382824",
+      "type": "used_watch",
+      "available": 1,
+      "pricing": {
+        "rrp": 4380,
+        "sale": 0,
+        "tax_type": "VMB",
+        "rank_score": 8.63708828125,
+        "current_price": 3460,
+        "standard_price": 3460,
+        "discount_percent_rrp": 21,
+        "discount_percent_standard": 0,
+        "vat": {
+          "amount": 0,
+          "rate": null
+        }
+      },
+      "tags": {
+        "box": {
+          "label": "Kotelo",
+          "value": 1,
+          "display": "Sisältää alkuperäisen laatikon"
+        },
+        "brand_category": {
+          "label": "",
+          "value": "midrange",
+          "display": "Midrange"
+        },
+        "case_diameter": {
+          "label": "Koko",
+          "value": 39,
+          "display": "39 mm"
+        },
+        "category": {
+          "label": "Kategoria",
+          "value": "Black Bay",
+          "display": "Black Bay",
+          "url": "/tudor/black-bay",
+          "context": "value"
+        },
+        "condition": {
+          "label": "Kunto",
+          "value": "very_good",
+          "display": "Erittäin hyvä, 4/5",
+          "url": "/popup/pre-owned-conditions"
+        },
+        "dial_color": {
+          "label": "Kellotaulun väri",
+          "value": "black",
+          "display": "Musta"
+        },
+        "gender": {
+          "label": "Tyyli",
+          "value": "mens",
+          "display": "Miesten kello"
+        },
+        "papers": {
+          "label": "Alkuperäinen takuu",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana",
+          "url": "/popup/product-warranty-pre-owned-general",
+          "context": "value"
+        },
+        "warranty_type": {
+          "label": "Takuu",
+          "value": "pre-owned",
+          "display": "1 vuotta jälleenmyyjän takuu",
+          "url": "/popup/product-warranty-pre-owned",
+          "context": "value"
+        },
+        "year": {
+          "label": "Vuosimalli",
+          "value": 2021,
+          "display": "2021"
+        }
+      },
+      "badges": [],
+      "stock_status": {
+        "stock": 1,
+        "leadtime": 6,
+        "num_sold": 0,
+        "num_stock": 0,
+        "leadtime_view": "4_7_days",
+        "leadtime_brand": 50,
+        "object_number": "V969318"
+      }
+    },
+    {
+      "brand": "Tudor",
+      "model": "M79030N-0003",
+      "name": "Tudor Heritage M79030N-0003",
+      "url": "tudor/black-bay/m79030n-0003/1367588",
+      "type": "used_watch",
+      "available": 1,
+      "pricing": {
+        "rrp": 4040,
+        "sale": 0,
+        "tax_type": "VMB",
+        "rank_score": 8.1766953125,
+        "current_price": 3360,
+        "standard_price": 3360,
+        "discount_percent_rrp": 17,
+        "discount_percent_standard": 0,
+        "vat": {
+          "amount": 0,
+          "rate": null
+        }
+      },
+      "tags": {
+        "box": {
+          "label": "Kotelo",
+          "value": 1,
+          "display": "Sisältää alkuperäisen laatikon"
+        },
+        "brand_category": {
+          "label": "",
+          "value": "midrange",
+          "display": "Midrange"
+        },
+        "case_diameter": {
+          "label": "Koko",
+          "value": 39,
+          "display": "39 mm"
+        },
+        "category": {
+          "label": "Kategoria",
+          "value": "Black Bay",
+          "display": "Black Bay",
+          "url": "/tudor/black-bay",
+          "context": "value"
+        },
+        "condition": {
+          "label": "Kunto",
+          "value": "very_good",
+          "display": "Erittäin hyvä, 4/5",
+          "url": "/popup/pre-owned-conditions"
+        },
+        "dial_color": {
+          "label": "Kellotaulun väri",
+          "value": "black",
+          "display": "Musta"
+        },
+        "gender": {
+          "label": "Tyyli",
+          "value": "mens",
+          "display": "Miesten kello"
+        },
+        "papers": {
+          "label": "Alkuperäinen takuu",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana",
+          "url": "/popup/product-warranty-pre-owned-general",
+          "context": "value"
+        },
+        "warranty_type": {
+          "label": "Takuu",
+          "value": "pre-owned",
+          "display": "1 vuotta jälleenmyyjän takuu",
+          "url": "/popup/product-warranty-pre-owned",
+          "context": "value"
+        },
+        "year": {
+          "label": "Vuosimalli",
+          "value": 2020,
+          "display": "2020"
+        }
+      },
+      "badges": [],
+      "stock_status": {
+        "stock": 1,
+        "leadtime": 6,
+        "num_sold": 0,
+        "num_stock": 0,
+        "leadtime_view": "4_7_days",
+        "leadtime_brand": 50,
+        "object_number": "V955195"
+      }
+    },
+    {
+      "brand": "Tudor",
+      "model": "M79030N-0002",
+      "name": "Tudor Heritage M79030N-0002",
+      "url": "tudor/black-bay/m79030n-0002/1497354",
+      "type": "used_watch",
+      "available": 1,
+      "pricing": {
+        "rrp": 0,
+        "sale": 0,
+        "tax_type": "VAT",
+        "rank_score": 5.370144,
+        "current_price": 4370,
+        "standard_price": 4370,
+        "discount_percent_rrp": 0,
+        "discount_percent_standard": 0,
+        "vat": {
+          "amount": 874,
+          "rate": 25
+        }
+      },
+      "tags": {
+        "box": {
+          "label": "Kotelo",
+          "value": 1,
+          "display": "Sisältää alkuperäisen laatikon"
+        },
+        "brand_category": {
+          "label": "",
+          "value": "midrange",
+          "display": "Midrange"
+        },
+        "case_diameter": {
+          "label": "Koko",
+          "value": 39,
+          "display": "39 mm"
+        },
+        "category": {
+          "label": "Kategoria",
+          "value": "Black Bay",
+          "display": "Black Bay",
+          "url": "/tudor/black-bay",
+          "context": "value"
+        },
+        "condition": {
+          "label": "Kunto",
+          "value": "very_good",
+          "display": "Erittäin hyvä, 4/5",
+          "url": "/popup/pre-owned-conditions"
+        },
+        "dial_color": {
+          "label": "Kellotaulun väri",
+          "value": "black",
+          "display": "Musta"
+        },
+        "gender": {
+          "label": "Tyyli",
+          "value": "mens",
+          "display": "Miesten kello"
+        },
+        "papers": {
+          "label": "Alkuperäinen takuu",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana",
+          "url": "/popup/product-warranty-pre-owned-general",
+          "context": "value"
+        },
+        "warranty_type": {
+          "label": "Takuu",
+          "value": "pre-owned",
+          "display": "1 vuotta jälleenmyyjän takuu",
+          "url": "/popup/product-warranty-pre-owned",
+          "context": "value"
+        },
+        "year": {
+          "label": "Vuosimalli",
+          "value": 2019,
+          "display": "2019"
+        }
+      },
+      "badges": [],
+      "stock_status": {
+        "stock": 1,
+        "leadtime": 9,
+        "num_sold": 0,
+        "num_stock": 0,
+        "leadtime_view": "5_10_days",
+        "leadtime_brand": 50,
+        "object_number": "V1078798"
+      }
+    },
+    {
+      "brand": "Tudor",
+      "model": "M79030N-0002",
+      "name": "Tudor Heritage Musta/Nahka Ø39 mm",
+      "url": "tudor/black-bay/m79030n-0002/316703",
+      "type": "watch",
+      "available": 0,
+      "pricing": {
+        "rrp": 4040,
+        "sale": 0,
+        "offers": [],
+        "tax_type": "VAT",
+        "rank_score": 4.0000065261,
+        "source_current_price": 0,
+        "source_standard_price": 0
+      },
+      "tags": {
+        "box": {
+          "label": "Kotelo",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana"
+        },
+        "brand_category": {
+          "label": "",
+          "value": "midrange",
+          "display": "Midrange"
+        },
+        "case_diameter": {
+          "label": "Koko",
+          "value": 39,
+          "display": "39 mm"
+        },
+        "category": {
+          "label": "Kategoria",
+          "value": "Black Bay",
+          "display": "Black Bay",
+          "url": "/tudor/black-bay",
+          "context": "value"
+        },
+        "condition": {
+          "label": "Kunto",
+          "value": "new",
+          "display": "Uusi & käyttämätön",
+          "url": "/popup/pre-owned-conditions"
+        },
+        "dial_color": {
+          "label": "Kellotaulun väri",
+          "value": "black",
+          "display": "Musta"
+        },
+        "gender": {
+          "label": "Tyyli",
+          "value": "mens",
+          "display": "Miesten kello"
+        },
+        "papers": {
+          "label": "Alkuperäinen takuu",
+          "value": 1,
+          "display": "Alkuperäinen takuu mukana",
+          "url": "/popup/product-warranty-pre-owned-general",
+          "context": "value"
+        },
+        "warranty_type": {
+          "label": "Takuu",
+          "value": "manufacturer",
+          "display": "5 vuotta valtuutettu maailmanlaajuinen takuu",
+          "url": "/popup/product-warranty-manufacturer",
+          "context": "value"
+        },
+        "year": {
+          "label": "Vuosimalli",
+          "value": 2026,
+          "display": "-"
+        }
+      },
+      "badges": [],
+      "stock_status": {
+        "stock": 0,
+        "leadtime": 99,
+        "num_sold": 0,
+        "num_stock": 0,
+        "leadtime_view": "2_5_months",
+        "leadtime_brand": 50
+      }
+    }
+  ],
+  "suggest": {
+    "text": "70330n",
+    "highlighted": "<strong>70330n</strong>",
+    "score": 0.00217667
+  },
+  "total": 7
+}

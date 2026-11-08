@@ -1,0 +1,75 @@
+{
+  "hits": [
+    {
+      "brand_feed": "MiLTAT",
+      "name": "MiLTAT Super-O Boyer teräsranneke 20 mm Seiko Alpinist sarjaan SS201820B065",
+      "url": "https://www.keskisenkello.fi/catalog/product/view/id/58767/s/tuotteet%2Fmiltat-super-3d-oyster-stalarmband-20-mm-ss201820b065/",
+      "in_stock": false,
+      "price": {
+        "EUR": {
+          "default": 109.9,
+          "default_formated": "109,90 €",
+          "special_from_date": 1633392000,
+          "special_to_date": ""
+        }
+      }
+    },
+    {
+      "brand_feed": "Seiko",
+      "name": "Seiko Prospex Sumo Automatic Diver's SPB103J1",
+      "url": "https://www.keskisenkello.fi/catalog/product/view/id/57091/s/tuotteet%2Fseiko-prospex-sumo-automatic-diver-s-spb103j1/",
+      "in_stock": 1,
+      "price": {
+        "EUR": {
+          "default": 960,
+          "default_formated": "960,00 €",
+          "special_from_date": 1633392000,
+          "special_to_date": ""
+        }
+      },
+      "kk_taulun_vari": "Vihreä"
+    },
+    {
+      "brand_feed": "MiLTAT",
+      "name": "MiLTAT Angus-J Louis 316L teräsranneke 20 mm Seiko Alpinist sarjaan SS201820PGD064",
+      "url": "https://www.keskisenkello.fi/catalog/product/view/id/58768/s/tuotteet%2Fmiltat-angus-jubilee-316l-stalarmband-20-mm-ss201820pgd064/",
+      "in_stock": 1,
+      "price": {
+        "EUR": {
+          "default": 159.99,
+          "default_formated": "159,99 €",
+          "special_from_date": 1633392000,
+          "special_to_date": ""
+        }
+      }
+    },
+    {
+      "brand_feed": "MiLTAT",
+      "name": "MiLTAT Angus-J Louis 316L teräsranneke 20 mm Seiko Alpinist sarjaan SS201820B064",
+      "url": "https://www.keskisenkello.fi/catalog/product/view/id/58769/s/tuotteet%2Fmiltat-angus-jubilee-316l-stalarmband-20-mm-ss201820b064/",
+      "in_stock": false,
+      "price": {
+        "EUR": {
+          "default": 134.99,
+          "default_formated": "134,99 €",
+          "special_from_date": 1633392000,
+          "special_to_date": ""
+        }
+      }
+    },
+    {
+      "brand_feed": "Crafter Blue",
+      "name": "Crafter Blue CB02 Black kumiranneke Seiko Sumo Scuba Diver's 200m-kelloihin",
+      "url": "https://www.keskisenkello.fi/tuotteet/crafter-blue-cb02-black-kumiranneke-seiko-sumo-scuba-diver-s-200m-kelloihin",
+      "in_stock": false,
+      "price": {
+        "EUR": {
+          "default": 65,
+          "default_formated": "65,00 €",
+          "special_from_date": 1633392000,
+          "special_to_date": ""
+        }
+      }
+    }
+  ]
+}

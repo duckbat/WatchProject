@@ -11,7 +11,7 @@ export const collectedPrice = z.object({
   observedAt: z.string(),
   condition: z.enum(['used', 'new', 'unknown']),
   sellerType: z.enum(['private', 'dealer', 'unknown']),
-  contents: z.literal('unknown'),
+  contents: z.enum(['full-set', 'watch-only', 'unknown']),
   url: z.string().url(),
   title: z.string().max(500),
   collectedAt: z.string(),
@@ -22,7 +22,8 @@ export type Candidate = z.infer<typeof collectedPrice>;
 export type MatchKind = 'exact' | 'reference' | 'similar';
 
 /** listedAt: when the seller posted or last edited the listing (observedAt stays the collection date). */
-export type LiveListing = Candidate & { match: MatchKind; image?: string; listedAt?: string; matchDetails?: string };
+export type ListingIdentity = { brand: string; reference: string; dial?: string; sizeMm?: number };
+export type LiveListing = Candidate & { match: MatchKind; image?: string; listedAt?: string; matchDetails?: string; identity?: ListingIdentity; canonicalUrl?: string };
 
 /** First https image from a string, an array of strings or `{ url }` objects (schema.org and eBay shapes). */
 export function firstImage(v: unknown): string | undefined {

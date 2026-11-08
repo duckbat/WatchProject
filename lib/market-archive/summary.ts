@@ -19,7 +19,7 @@ export type MarketSummary = { priced: number; priceEur: number | null; count: nu
 
 const DAY = 86_400_000;
 // Active classified ads count as current; forum posts and sales count on their post or sale date.
-const CLASSIFIEDS = new Set(['tori', 'finn', 'blocket', 'dba', 'ebay']);
+const CLASSIFIEDS = new Set(['tori', 'finn', 'blocket', 'dba', 'ebay', 'kellotux', 'laatukellot']);
 
 /**
  * The watch page's default market price (median, 1 year, all regions, all dials) for every archived watch, in EUR,

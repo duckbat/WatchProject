@@ -7,6 +7,10 @@ export const catalog = [
  {id:"grandseiko-sbga211",brand:"Grand Seiko",name:"Snowflake",reference:"SBGA211",color:"#d4dbe0",size:"41 mm"},
 ];
 export const defaultSources = [
+ {id:"kellotux",name:"Kellotux.fi",url:"https://kellotux.fi",country:"FI",mode:"Automatic used-market listings"},
+ {id:"laatukellot",name:"Laatukellot.fi",url:"https://www.laatukellot.fi",country:"",mode:"Automatic new and used shop prices"},
+ {id:"keskisenkello",name:"Keskisen Kello",url:"https://www.keskisenkello.fi",country:"FI",mode:"Automatic new-watch shop prices"},
+ {id:"huuto",name:"Huuto.net sold listings",url:"https://www.huuto.net",country:"FI",mode:"Automatic public sold evidence"},
  {id:"phillips",name:"Phillips auctions",url:"https://www.phillips.com",country:"",mode:"Automatic auction results"},
  {id:"antiquorum",name:"Antiquorum",url:"https://catalog.antiquorum.swiss",country:"",mode:"Automatic reported sales"},
  {id:"christies",name:"Christie’s",url:"https://onlineonly.christies.com",country:"",mode:"Automatic sales · selected catalogues"},
