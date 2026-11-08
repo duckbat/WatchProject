@@ -4,6 +4,8 @@ import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, Chevron
 import { brandSiteFor, convertPrice, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors/matching/reference';
+import { exactMatch } from '../lib/collectors/matching/classify';
+import { expectedDial, namesDial } from '../lib/collectors/matching/dial';
 import { listingKind } from '../lib/market-archive/listings';
 import PriceScatter, { type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
@@ -32,6 +34,13 @@ type Props = {
   fx?: import('../lib/market').Fx | null;
 };
 
+/** Swatch colors for the dial names the catalog uses. */
+const dialSwatch: Record<string, string> = {
+  black: '#16181a', white: '#f4f4f0', blue: '#234a8c', green: '#1f5c3d', silver: '#c3c7cb', grey: '#7d8288', champagne: '#d8c39a',
+  brown: '#6b4a33', pink: '#e8b4c0', purple: '#5d3a78', red: '#a3262a', orange: '#db7a2c', yellow: '#e4c44c', salmon: '#f1a58b',
+  turquoise: '#3fb3b0', beige: '#d9cbb0', ivory: '#f1ead6', slate: '#4b5661', rhodium: '#8f9499', anthracite: '#3a3d40', cream: '#efe5cc', coral: '#ef7f69',
+};
+
 function ago(iso: string) {
   const m = Math.round((Date.now() - +new Date(iso)) / 60000);
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
@@ -53,6 +62,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [showSources, setShowSources] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [specsOpen, setSpecsOpen] = useState(false);
+  const [variants, setVariants] = useState<Model[]>([]);
+  const [allVariants, setAllVariants] = useState(false);
 
   useEffect(() => {
     if (model) return;
@@ -91,14 +102,24 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     }
   }, [modelId, loadLive, signedIn]);
 
+  // Other dials/bracelets of the same reference, for the picker under the photo.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/catalog?${new URLSearchParams({ variants: modelId, currency: prefs.currency })}`, { signal: controller.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
+      .then((d) => setVariants(d?.items || []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [modelId, prefs.currency]);
+
   useEffect(() => {
     if (!model) return;
     const line = model.name.split(/[\s/]+/).slice(0, /^\d{2}/.test(model.name.split(/\s+/)[1] || '') ? 2 : 1).join(' ');
-    fetch(`/api/catalog?${new URLSearchParams({ q: line, brand: model.brand, limit: '9' })}`)
+    fetch(`/api/catalog?${new URLSearchParams({ q: line, brand: model.brand, limit: '9', currency: prefs.currency })}`)
       .then((r) => r.json())
       .then((d: any) => setRelated((d.items || []).filter((m: Model) => m.id !== model.id).slice(0, 8)))
       .catch(() => setRelated([]));
-  }, [model]);
+  }, [model, prefs.currency]);
 
   if (missing && !model)
     return (
@@ -127,8 +148,20 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const convertedCount = listings.filter((l) => l.originalCurrency && l.match !== 'similar').length + saved.filter((e) => (e.data as any).originalCurrency).length;
   const liveIn = (l: LiveListing) => l.currency === prefs.currency && inRegion(l.country, prefs.region) && (prefs.condition === 'all' || l.condition === prefs.condition) && (prefs.seller === 'all' || l.sellerType === prefs.seller) && (prefs.basis === 'all' || l.status === prefs.basis) && l.observedAt >= periodStart(prefs.period);
   // Priced listings: the complete reference, or the base reference with the variant unstated (labelled on each card).
-  const exact = listings.filter((l) => l.match !== 'similar');
-  const similar = listings.filter((l) => l.match === 'similar');
+  // Dial scope. All dials: every listing naming the base reference, whatever its dial (other-dial listings are archived
+  // as "similar" for the open variant). One dial: the complete variant reference, or the base reference plus this
+  // dial's color; variants the catalog gives no single dial color keep "dial not stated" listings.
+  const base = baseReference(model.reference);
+  const hasVariants = variants.length > 1;
+  const allDials = hasVariants && prefs.dialScope !== 'dial';
+  const dialKnown = expectedDial(model.name).size === 1;
+  const counts = (l: LiveListing) =>
+    allDials
+      ? l.match !== 'similar' || exactMatch(l.title, { brand: model.brand, reference: base }, l.matchDetails)
+      : l.match === 'exact' || (l.match === 'reference' && (!hasVariants || !dialKnown || namesDial(`${l.title} ${l.matchDetails || ''}`, model.name)));
+  // Listings counted only because of the scope are shown as same-reference listings.
+  const exact = listings.filter(counts).map((l) => (l.match === 'similar' ? { ...l, match: 'reference' as const } : l));
+  const similar = listings.filter((l) => !counts(l));
   const exactIn = exact.filter(liveIn);
   const similarIn = similar.filter(liveIn);
   // Market price: asking AND sold prices for this exact reference (independent of the price-type chart filter).
@@ -144,7 +177,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     ...latestListings(saved.filter((e) => inScope(e.data) && periodOk(e.data.observedAt) && !(e.data.url && exactUrls.has(e.data.url)))).map((e) => ({ price: e.data.price, status: e.data.status, date: e.data.observedAt, title: (e.data as any).title as string | undefined, variant: true, converted: Boolean((e.data as any).originalCurrency) })),
   ]);
   // With enough complete-variant prices, the variant alone sets the price; otherwise same-reference listings fill in.
-  const variantOnly = candidates.filter((p) => p.variant).length >= 3;
+  const variantOnly = !allDials && candidates.filter((p) => p.variant).length >= 3;
   const { kept: pool, dropped: outliers } = withoutOutliers(variantOnly ? candidates.filter((p) => p.variant) : candidates, (p) => p.price);
   const nReference = pool.filter((p) => !p.variant).length;
   const soldPool = pool.filter((p) => isSold(p.status));
@@ -228,8 +261,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <div className="listing-body">
           <span className="listing-source">{sourceName(l.sourceId)} · {countries[l.country] || l.country}{l.condition !== 'unknown' ? ` · ${l.condition === 'new' ? 'New' : 'Pre-owned'}` : ''}</span>
           <a className="listing-title" href={l.url} target="_blank" rel="noreferrer">{l.title}</a>
-          {l.match === 'similar' && <span className="listing-source">Not an exact variant match · excluded from market price</span>}
-          {l.match === 'reference' && <span className="listing-source">Ref. {baseReference(model.reference)} · dial/bracelet variant not stated</span>}
+          {l.match === 'similar' && <span className="listing-source">{allDials ? 'Another reference' : 'Another dial or reference'} · not in this price</span>}
+          {l.match === 'reference' && <span className="listing-source">Ref. {base} · {allDials ? 'any dial' : dialKnown && hasVariants ? `${variants.find((v) => v.id === model.id)?.dial || 'this'} dial` : 'dial/bracelet not stated'}</span>}
           <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}<span className={`tag${l.status !== 'asking' ? ' sold-tag' : ''}`}>{l.status === 'confirmed-sale' ? 'Reported sale' : l.status === 'sold-asking' ? 'Sold · last ask' : l.archived ? 'Asking · last observed' : 'Asking'}</span></strong>
           {l.archived && l.lastSeenAt && <span className="listing-source">Last seen {fmtDate(l.lastSeenAt.slice(0, 10))} · availability not reverified</span>}
           {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
@@ -273,7 +306,32 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />
             {owned.length > 0 && <span className="owned-tag">In my watches</span>}
           </div>
-          {family && <p className="detail-variant">{model.name}{model.size ? ` · ${model.size}` : ''}</p>}
+          {variants.length > 1 ? (
+            <div className="variant-picker">
+              <p className="variant-head">
+                <span>{allDials ? `All dials · Ref. ${base}` : variants.find((v) => v.id === model.id)?.label || model.name}</span>
+                <small>{allDials ? 'Pick a dial for its own price' : `${variants.length} variants`}</small>
+              </p>
+              <div className="variant-grid">
+                <button className={`all-dials${allDials ? ' active' : ''}`} aria-pressed={allDials} title={`Price across all ${variants.length} variants of Ref. ${base}`} onClick={() => onPrefs({ ...prefs, dialScope: 'all' })}>
+                  <span className="variant-thumb"><span className="all-dials-icon">{variants.slice(0, 4).map((v) => <i key={v.id} style={{ background: (v.dial && dialSwatch[v.dial]) || '#bbb' }} />)}</span></span>
+                  <span className="variant-name">All dials</span>
+                </button>
+                {(allVariants ? variants : variants.slice(0, 11)).map((v) => (
+                  <button key={v.id} className={!allDials && v.id === model.id ? 'active' : ''} aria-pressed={!allDials && v.id === model.id} title={`${v.label} · Ref. ${v.reference}`} onClick={() => { if (prefs.dialScope !== 'dial') onPrefs({ ...prefs, dialScope: 'dial' }); if (v.id !== model.id) onNavigate({ view: 'watch', id: v.id }); }}>
+                    <span className="variant-thumb"><WatchPhoto model={v} credit={false} iconSize={16} /></span>
+                    <span className="variant-name">
+                      {v.dial && <i className="swatch" style={{ background: dialSwatch[v.dial] || '#999' }} />}
+                      {v.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {variants.length > 11 && <button className="text-btn" onClick={() => setAllVariants((x) => !x)}>{allVariants ? 'Show fewer' : `Show all ${variants.length}`}</button>}
+            </div>
+          ) : (
+            family && <p className="detail-variant">{model.name}{model.size ? ` · ${model.size}` : ''}</p>
+          )}
         </div>
 
         <div className="detail-info">
@@ -314,7 +372,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             <div className="price-row market">
               <div>
                 <h3>Market price <span className="info" title={marketBasis || 'Median of asking and sold prices for this reference in the selected currency, region and time range. Cross-posts count once; far-off prices are excluded.'} role="img" aria-label="How the market price is calculated"><Info size={13} /></span></h3>
-                <p>{liveState === 'loading' && marketPrice === null ? 'Checking marketplaces…' : marketPrice === null ? 'No prices found yet' : 'Estimated private sale price'}</p>
+                <p>{liveState === 'loading' && marketPrice === null ? 'Checking marketplaces…' : marketPrice === null ? (hasVariants && !allDials ? 'No prices for this dial yet' : 'No prices found yet') : `Estimated private sale price${hasVariants ? (allDials ? ' · all dials' : ' · this dial') : ''}`}</p>
               </div>
               <div className="price-value">
                 <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>

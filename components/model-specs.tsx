@@ -2,23 +2,21 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import type { Model } from '../lib/market';
-import { baseReference } from '../lib/collectors/matching/reference';
 
 type CatalogModel = Model & { family?: string; sourceUrl?: string };
 
 /** Catalog facts for a reference and its dial/bracelet variants. Only fields the catalog actually has are shown. */
 export default function ModelSpecs({ model, onClose, onOpen }: { model: CatalogModel; onClose: () => void; onOpen: (id: string) => void }) {
-  const base = baseReference(model.reference);
   const [variants, setVariants] = useState<CatalogModel[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/catalog?${new URLSearchParams({ q: base, brand: model.brand, limit: '24' })}`, { signal: controller.signal })
+    fetch(`/api/catalog?${new URLSearchParams({ variants: model.id })}`, { signal: controller.signal })
       .then((r) => (r.ok ? (r.json() as Promise<{ items?: CatalogModel[] }>) : null))
-      .then((d) => setVariants((d?.items || []).filter((m) => baseReference(m.reference).toLowerCase() === base.toLowerCase())))
+      .then((d) => setVariants(d?.items || []))
       .catch(() => {});
     return () => controller.abort();
-  }, [base, model.brand]);
+  }, [model.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -34,7 +32,7 @@ export default function ModelSpecs({ model, onClose, onOpen }: { model: CatalogM
       variants.length > 1 ? (
         <span className="spec-refs">
           {variants.map((v) => (
-            <button key={v.id} className={v.id === model.id ? 'current' : ''} onClick={() => v.id !== model.id && onOpen(v.id)} title={v.name}>
+            <button key={v.id} className={v.id === model.id ? 'current' : ''} onClick={() => v.id !== model.id && onOpen(v.id)} title={v.label || v.name}>
               {v.reference}
             </button>
           ))}

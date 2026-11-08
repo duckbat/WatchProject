@@ -2,15 +2,16 @@ import { inRegion, type Observation } from '../lib/market';
 
 export type View = 'home' | 'watch' | 'collection' | 'records' | 'sources' | 'brands' | 'clip' | 'import';
 export type Route = { view: View; id?: string; q?: string; brand?: string };
-export type Prefs = { region: string; currency: string; basis: string; method: string; period: string; condition: string; seller: string; convert: string };
+/** dialScope: price a reference across all its dials ('all') or only the open dial variant ('dial'). */
+export type Prefs = { region: string; currency: string; basis: string; method: string; period: string; condition: string; seller: string; convert: string; dialScope: 'all' | 'dial' };
 export type ModalKind = '' | 'owned' | 'observation' | 'source' | 'model' | 'about';
 export type BrandFacet = { brand: string; count: number };
 export type Me = { user: { name: string | null; email: string; displayName: string } | null; signOutPath?: string; signInPath?: string };
-export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
+export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; matchDetails?: string; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
 export type SourceStatus = { id: string; name: string; status: 'ok' | 'error' | 'credentials_required' | 'blocked'; count: number; message?: string; searchUrl?: string };
 export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; sources: SourceStatus[]; threads?: { title: string; url: string; date: string; source: string }[] };
 
-export const defaultPrefs: Prefs = { region: 'Global', currency: 'EUR', basis: 'all', method: 'median', period: '365', condition: 'all', seller: 'all', convert: 'on' };
+export const defaultPrefs: Prefs = { region: 'Global', currency: 'EUR', basis: 'all', method: 'median', period: '365', condition: 'all', seller: 'all', convert: 'on', dialScope: 'all' };
 export const statuses: Record<string, string> = { asking: 'Asking price', 'confirmed-sale': 'Confirmed sale', 'sold-asking': 'Sold · last ask' };
 export const regions: [string, string][] = [['Global', 'Global'], ['EU', 'European Union'], ['US', 'United States'], ['Asia', 'Asia'], ['FI', 'Finland'], ['SE', 'Sweden'], ['NO', 'Norway'], ['DK', 'Denmark'], ['GB', 'United Kingdom'], ['CH', 'Switzerland']];
 export const periods: [string, string][] = [['30', '1M'], ['90', '3M'], ['180', '6M'], ['365', '1Y'], ['36500', 'All']];

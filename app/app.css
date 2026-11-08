@@ -512,7 +512,8 @@
 .kind-toggle button + button { border-left: 1px solid var(--line); }
 .kind-toggle button.on { background: var(--accent); color: #fff; font-weight: 600; }
 /* Uniform watch cards: fixed image box, every photo scaled to the same height, text rows aligned */
-.watch-tile-photo { aspect-ratio: auto; height: 230px; overflow: hidden; position: relative; display: block; background: #f3f5ef; }
+.watch-tile-photo { aspect-ratio: auto; height: 230px; overflow: hidden; position: relative; display: block; background: #f3f5ef; align-self: stretch; } /* buttons centre their children; the photo holds only absolute content */
+.watch-tile-info { align-self: stretch; }
 .watch-tile-photo .watch-photo { position: absolute; inset: 0; margin: auto; height: 84%; width: 86%; max-width: none; padding: 0; object-fit: contain; }
 .watch-tile-photo .watch-placeholder { position: absolute; inset: 0; display: grid; place-items: center; }
 .watch-tile-photo .photo-credit { position: absolute; left: 8px; bottom: 6px; }
@@ -563,3 +564,22 @@
   .detail-head h1 { font-size: 32px; }
   .more-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- Variants (dial/bracelet) and card prices ---------- */
+.variant-count { align-self: flex-start; display: inline-block; margin-top: 6px; font-size: 11px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 8px; }
+.suggestion-price { font-weight: 650; font-size: 13px; color: var(--ink); white-space: nowrap; }
+.variant-picker { margin-top: 14px; }
+.variant-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+.variant-head small { color: var(--muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+.variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+.variant-grid button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 11px; color: var(--ink-2); line-height: 1.25; text-align: center; }
+.variant-grid button:hover { border-color: var(--accent); }
+.variant-grid button.active { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); color: var(--ink); font-weight: 600; cursor: default; }
+.variant-thumb { width: 52px; height: 52px; position: relative; display: grid; place-items: center; overflow: hidden; }
+.variant-thumb .watch-photo { padding: 0; }
+.variant-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: 0; border: 1px solid #0002; }
+.variant-picker > .text-btn { margin-top: 8px; }
+.all-dials-icon { display: grid; grid-template-columns: repeat(2, 14px); gap: 3px; }
+.all-dials-icon i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #0002; }
+.variant-grid button.all-dials .variant-name { font-weight: 600; }

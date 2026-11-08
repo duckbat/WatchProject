@@ -1,7 +1,7 @@
 'use client';
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Clock, Search, Tag, TrendingUp, X } from 'lucide-react';
-import type { Model } from '../lib/market';
+import { money, type Model } from '../lib/market';
 import WatchPhoto from './watch-photo';
 import { popularSearches } from './shared';
 
@@ -15,6 +15,7 @@ type Props = {
   variant: 'hero' | 'compact';
   brands: { brand: string; count: number }[];
   totalCatalog?: number;
+  currency?: string;
   autoFocus?: boolean;
   onSubmit: (q: string) => void;
   onPickWatch: (model: Model) => void;
@@ -43,7 +44,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return <>{text.split(re).map((part, i) => (i % 2 ? <mark key={i}>{part}</mark> : <span key={i}>{part}</span>))}</>;
 }
 
-export default function SearchBox({ initial = '', variant, brands, totalCatalog, autoFocus, onSubmit, onPickWatch, onPickBrand }: Props) {
+export default function SearchBox({ initial = '', variant, brands, totalCatalog, currency = 'EUR', autoFocus, onSubmit, onPickWatch, onPickBrand }: Props) {
   const [value, setValue] = useState(initial);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -58,12 +59,12 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
   // Shown before typing: the watches with the most market data.
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/catalog?popular=1&limit=4', { signal: controller.signal })
+    fetch(`/api/catalog?${new URLSearchParams({ popular: '1', limit: '4', currency })}`, { signal: controller.signal })
       .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
       .then((d) => setTracked(d?.items || []))
       .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [currency]);
 
   const q = value.trim();
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
     const controller = new AbortController();
     setLoading(true);
     const timer = setTimeout(() => {
-      fetch(`/api/catalog?${new URLSearchParams({ q, limit: '6' })}`, { signal: controller.signal })
+      fetch(`/api/catalog?${new URLSearchParams({ q, limit: '6', currency })}`, { signal: controller.signal })
         .then((r) => r.json())
         .then((d: any) => setModels(d.items || []))
         .catch(() => {})
@@ -87,7 +88,7 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
       clearTimeout(timer);
       controller.abort();
     };
-  }, [q]);
+  }, [q, currency]);
 
   const brandMatches = q
     ? brands
@@ -228,8 +229,9 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
                   <span className="suggestion-thumb"><WatchPhoto model={o.model} credit={false} iconSize={18} /></span>
                   <span className="suggestion-text">
                     <Highlight text={`${o.model.brand} ${o.model.name}`} query={q} />
-                    <small>Ref. <Highlight text={o.model.reference} query={q} />{o.model.priced ? ` · ${o.model.priced} market prices` : ''}</small>
+                    <small>Ref. <Highlight text={o.model.reference} query={q} />{o.model.variants && o.model.variants > 1 ? ` · ${o.model.variants} variants` : ''}</small>
                   </span>
+                  {o.model.market && <span className="suggestion-price">{money(o.model.market.price, o.model.market.currency)}</span>}
                   <ArrowRight size={14} className="suggestion-go" />
                 </li>
               </Fragment>

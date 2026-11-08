@@ -36,8 +36,14 @@ export function WatchCard({ model, price, owned, onOpen }: { model: Model; price
         <span className="watch-tile-brand">{model.brand}</span>
         <h3>{model.name}</h3>
         <p>Ref. {model.reference}</p>
+        {model.variants && model.variants > 1 ? <span className="variant-count">{model.variants} variants</span> : null}
         <div className="watch-tile-price">
-          {price && price.value !== null ? (
+          {model.market ? (
+            <>
+              <strong>{money(model.market.price, model.market.currency)}</strong>
+              <small>{model.market.count} market price{model.market.count === 1 ? '' : 's'}</small>
+            </>
+          ) : price && price.value !== null ? (
             <>
               <strong>{money(price.value, price.currency)}</strong>
               <small>{price.count} saved prices</small>
@@ -47,7 +53,6 @@ export function WatchCard({ model, price, owned, onOpen }: { model: Model; price
               <span className="see-price">
                 See market price <ArrowRight size={13} />
               </span>
-              {model.priced ? <small>{model.priced} market prices</small> : null}
             </>
           )}
         </div>
@@ -72,7 +77,7 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
   useEffect(() => {
     if (searching) return;
     const controller = new AbortController();
-    fetch('/api/catalog?popular=1&limit=12', { signal: controller.signal })
+    fetch(`/api/catalog?${new URLSearchParams({ popular: '1', limit: '12', currency: prefs.currency })}`, { signal: controller.signal })
       .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
       .then((d) => {
         if (!d?.items?.length) return;
@@ -82,13 +87,13 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
       .catch(() => {});
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searching]);
+  }, [searching, prefs.currency]);
   useEffect(() => {
     if (!searching) return;
     const controller = new AbortController();
     setLoading(true);
     setError('');
-    fetch(`/api/catalog?${new URLSearchParams({ q, brand, page: String(page) })}`, { signal: controller.signal })
+    fetch(`/api/catalog?${new URLSearchParams({ q, brand, page: String(page), currency: prefs.currency })}`, { signal: controller.signal })
       .then(async (r) => {
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
@@ -103,7 +108,7 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, brand, page, searching]);
+  }, [q, brand, page, searching, prefs.currency]);
 
   const open = (m: Model) => onNavigate({ view: 'watch', id: m.id });
   const brandNames = brands.map((b) => b.brand);
@@ -126,6 +131,7 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
           variant="hero"
           initial={q}
           brands={brands}
+          currency={prefs.currency}
           totalCatalog={totalCatalog}
           autoFocus={!searching}
           onSubmit={(next) => onNavigate({ view: 'home', q: next, brand })}

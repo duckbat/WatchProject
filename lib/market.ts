@@ -32,7 +32,11 @@ export const defaultSources = [
  {id:"watchuseek",name:"WatchUSeek",url:"https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/",country:"",mode:"Automatic forum asking prices"},
  {id:"web",name:"Other website",url:"",country:"",mode:"Manual observations"},
 ];
-export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string;priced?:number}; // priced: market observations found (search results only)
+/**
+ * Catalog fields plus what search results add: priced = market observations found, variants = dial/bracelet variants
+ * of the same reference, market = 1-year market price in the requested currency, label/dial = what sets a variant apart.
+ */
+export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string;priced?:number;variants?:number;market?:{price:number;currency:string;count:number};label?:string;dial?:string|null};
 export type Source = typeof defaultSources[number];
 export type Observation = {modelId:string;sourceId:string;country:string;currency:string;price:number;status:string;observedAt:string;condition:string;sellerType:string;contents:string;url:string};
 export type Owned = {modelId:string;cost:number;currency:string;purchaseDate:string};
