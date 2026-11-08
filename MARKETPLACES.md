@@ -34,7 +34,7 @@ Open **Profile → Save from any website** (or the Sources page) and drag the gr
 
 ## Currency
 
-Prices default to EUR. Change the currency with the picker at the top right; it is remembered in your browser. Currencies are never converted: a listing only appears when it was priced in the selected currency (r/Watchexchange posts are mostly USD).
+Prices default to EUR; change it with the picker at the top right. Listings in other currencies (most r/Watchexchange and WatchUSeek posts are USD) are converted with the European Central Bank's daily reference rates (`/api/fx`; Frankfurter's copy of the same ECB data is used if the ECB host is unreachable). Converted prices show as "≈ €8,060 · Listed at $8,999 · converted", and saved records keep the original price and currency. Choose **Only EUR prices** in the filters to turn conversion off.
 
 ## Retail prices
 

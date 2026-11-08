@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { catalog, defaultSources, latestListings, summarize, type Entry, type Model, type Observation } from "../lib/market";
+import { catalog, defaultSources, latestListings, summarize, type Entry, type Fx, type Model, type Observation } from "../lib/market";
 import SiteHeader from "../components/site-header";
 import HomeView from "../components/home-view";
 import WatchDetail from "../components/watch-detail";
@@ -26,6 +26,7 @@ export default function Home() {
   const [prefs, setPrefsState] = useState<Prefs>(defaultPrefs);
   const [modal, setModal] = useState<ModalKind>("");
   const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [fx, setFx] = useState<Fx | null>(null);
 
   // ---- Routing (query-string based so links and the back button work) ----
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function Home() {
       .catch((e) => setError(e.message))
       .finally(() => setLoaded(true));
     fetch("/api/me").then((r) => r.json()).then((d) => setMe(d as Me)).catch(() => setMe({ user: null }));
+    fetch("/api/fx").then((r) => (r.ok ? r.json() : null)).then((d) => setFx(d as Fx | null)).catch(() => {});
     fetch("/api/catalog?facets=brands").then((r) => r.json()).then((d: any) => setBrands(d.brands || [])).catch(() => {});
   }, []);
 
@@ -178,6 +180,7 @@ export default function Home() {
             onModels={addModels}
             signedIn={signedIn}
             onSaveRecord={saveRecord}
+            fx={fx}
             groupSources={sources.filter((s) => /facebook\.com\/groups\/[\w.]+/i.test(s.url || ''))}
           />
         ) : route.view === "collection" ? (

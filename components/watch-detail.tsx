@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Pencil, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
-import { brandSiteFor, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
+import { brandSiteFor, convertPrice, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors';
 import PriceScatter, { type ChartPoint } from './price-scatter';
@@ -27,6 +27,7 @@ type Props = {
   signedIn: boolean;
   groupSources?: { id: string; name: string; url?: string }[];
   onSaveRecord: (kind: string, data: Record<string, unknown>) => Promise<void>;
+  fx?: import('../lib/market').Fx | null;
 };
 
 function ago(iso: string) {
@@ -34,7 +35,7 @@ function ago(iso: string) {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
 }
 
-export default function WatchDetail({ modelId, model, entries, sourceName, prefs, onPrefs, onNavigate, onModal, onSaveListing, onRemove, onModels, signedIn, groupSources = [], onSaveRecord }: Props) {
+export default function WatchDetail({ modelId, model, entries, sourceName, prefs, onPrefs, onNavigate, onModal, onSaveListing, onRemove, onModels, signedIn, groupSources = [], onSaveRecord, fx = null }: Props) {
   const [live, setLive] = useState<LiveResult | null>(null);
   const [liveState, setLiveState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveError, setLiveError] = useState('');
@@ -106,10 +107,20 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   if (!model) return <div className="detail-skeleton" aria-busy="true" />;
 
   // ---- Data ----
-  const saved = entries.filter((e) => e.kind === 'observation' && e.data.modelId === modelId) as (Entry & { data: Observation })[];
+  // Prices in other currencies are converted with ECB reference rates (unless switched off) and marked as converted.
+  const toCur = (price: number, cur: string) => (cur === prefs.currency ? price : prefs.convert === 'off' ? null : convertPrice(price, cur, prefs.currency, fx));
+  const savedAll = entries.filter((e) => e.kind === 'observation' && e.data.modelId === modelId) as (Entry & { data: Observation })[];
+  const saved = savedAll.flatMap((e) => {
+    const p = toCur(e.data.price, e.data.currency);
+    return p === null ? [] : [{ ...e, data: { ...e.data, price: Math.round(p), currency: prefs.currency, originalPrice: e.data.currency === prefs.currency ? undefined : e.data.price, originalCurrency: e.data.currency === prefs.currency ? undefined : e.data.currency } }];
+  });
   const savedShown = saved.filter((e) => matchesPrefs(e.data, prefs));
   const savedPrice = summarize(latestListings(savedShown).map((e) => e.data.price), prefs.method);
-  const listings = live?.listings || [];
+  const listings: LiveListing[] = (live?.listings || []).flatMap((l) => {
+    const p = toCur(l.price, l.currency);
+    return p === null ? [] : [l.currency === prefs.currency ? l : { ...l, price: Math.round(p), currency: prefs.currency, originalPrice: l.price, originalCurrency: l.currency }];
+  });
+  const convertedCount = listings.filter((l) => l.originalCurrency && l.match === 'exact').length + saved.filter((e) => (e.data as any).originalCurrency).length;
   const liveIn = (l: LiveListing) => l.currency === prefs.currency && inRegion(l.country, prefs.region) && (prefs.condition === 'all' || l.condition === prefs.condition) && (prefs.seller === 'all' || l.sellerType === prefs.seller) && (prefs.basis === 'all' || l.status === prefs.basis) && l.observedAt >= periodStart(prefs.period);
   const exact = listings.filter((l) => l.match === 'exact');
   const similar = listings.filter((l) => l.match === 'similar');
@@ -118,9 +129,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const livePrice = summarize(exactIn.map((l) => l.price), prefs.method);
   const similarPrice = summarize(similarIn.map((l) => l.price), prefs.method);
   const marketPrice = livePrice ?? savedPrice;
-  const marketBasis = livePrice !== null ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${exactIn.length} exact-reference listing${exactIn.length === 1 ? '' : 's'} · ${periods.find(([v]) => v === prefs.period)?.[1]}` : savedPrice !== null ? `From ${latestListings(savedShown).length} of your saved prices` : '';
+  const marketBasis = livePrice !== null ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${exactIn.length} exact-reference listing${exactIn.length === 1 ? '' : 's'} · ${periods.find(([v]) => v === prefs.period)?.[1]}${exactIn.some((l) => l.originalCurrency) ? ` · ${exactIn.filter((l) => l.originalCurrency).length} converted to ${prefs.currency}` : ''}` : savedPrice !== null ? `From ${latestListings(savedShown).length} of your saved prices` : '';
   const lows = exactIn.map((l) => l.price);
-  const otherCurrencies = exact.filter((l) => l.currency !== prefs.currency).map((l) => l.currency);
+  const otherCurrencies = (live?.listings || []).filter((l) => l.match === 'exact' && !listings.some((x) => x.url === l.url)).map((l) => l.currency);
   const otherCurrency = otherCurrencies.length;
   const topOther = otherCurrencies.sort((a, b) => otherCurrencies.filter((x) => x === b).length - otherCurrencies.filter((x) => x === a).length)[0];
   const sellPrice = Number(sellInput) > 0 ? Number(sellInput) : marketPrice;
@@ -135,8 +146,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const owned = entries.filter((e) => e.kind === 'owned' && e.data.modelId === modelId);
 
   const points: ChartPoint[] = [
-    ...savedShown.filter((e) => !(e.data.observedAt === today() && exactIn.some((l) => l.url === e.data.url))).map((e) => ({ id: e.id, date: e.data.observedAt, price: e.data.price, kind: e.data.status as ChartPoint['kind'], title: (e.data as any).title || `${model.brand} ${model.reference}`, url: e.data.url || undefined, source: sourceName(e.data.sourceId), country: countries[e.data.country] || e.data.country })),
-    ...[...exactIn.map((l) => ({ l, kind: l.status === 'sold-asking' ? ('sold-asking' as const) : ('live' as const) })), ...similarIn.map((l) => ({ l, kind: 'similar' as const }))].map(({ l, kind }) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt, price: l.price, kind, title: l.title, url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
+    ...savedShown.filter((e) => !(e.data.observedAt === today() && exactIn.some((l) => l.url === e.data.url))).map((e) => ({ id: e.id, date: e.data.observedAt, price: e.data.price, kind: e.data.status as ChartPoint['kind'], title: ((e.data as any).title || `${model.brand} ${model.reference}`) + ((e.data as any).originalCurrency ? ` (converted from ${money((e.data as any).originalPrice, (e.data as any).originalCurrency)})` : ''), url: e.data.url || undefined, source: sourceName(e.data.sourceId), country: countries[e.data.country] || e.data.country })),
+    ...[...exactIn.map((l) => ({ l, kind: l.status === 'sold-asking' ? ('sold-asking' as const) : ('live' as const) })), ...similarIn.map((l) => ({ l, kind: 'similar' as const }))].map(({ l, kind }) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt, price: l.price, kind, title: l.title + (l.originalCurrency ? ` (converted from ${money(l.originalPrice!, l.originalCurrency)})` : ''), url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
   ];
 
   const regional = regions.filter(([r]) => r !== 'Global').map(([r, name]) => {
@@ -171,7 +182,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   async function save(l: LiveListing) {
     setSaving(l.url);
     try {
-      await onSaveListing(l);
+      // Save what the seller actually asked, not the converted figure.
+      await onSaveListing(l.originalCurrency ? { ...l, price: l.originalPrice!, currency: l.originalCurrency, originalPrice: undefined, originalCurrency: undefined } : l);
     } finally {
       setSaving('');
     }
@@ -187,7 +199,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <div className="listing-body">
           <span className="listing-source">{sourceName(l.sourceId)} · {countries[l.country] || l.country}{l.condition !== 'unknown' ? ` · ${l.condition === 'new' ? 'New' : 'Pre-owned'}` : ''}</span>
           <a className="listing-title" href={l.url} target="_blank" rel="noreferrer">{l.title}</a>
-          <strong className="listing-price">{money(l.price, l.currency)}{l.status === 'sold-asking' && <span className="tag sold-tag">Sold</span>}</strong>
+          <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}{l.status === 'sold-asking' && <span className="tag sold-tag">Sold</span>}</strong>
+          {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
           {l.listedAt && <span className="listing-source">{l.sourceId === 'tori' ? 'Updated' : 'Listed'} {new Date(l.listedAt + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
           <div className="listing-actions">
             <a className="secondary" href={l.url} target="_blank" rel="noreferrer">
@@ -325,6 +338,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 : (
                   <>
                     Live from {live?.sources.filter((s) => s.status === 'ok').map((s) => s.name).join(', ') || 'no sources'} · updated {live && ago(live.fetchedAt)}
+                    {convertedCount > 0 && fx && <> · other currencies converted at ECB rates of {fx.date}</>}
                     {otherCurrency > 0 && (
                       <>
                         {' · '}
@@ -513,19 +527,19 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         </div>
         <div className="panel">
           <div className="section-head">
-            <h2>Your price records <span className="count-pill">{saved.length}</span></h2>
+            <h2>Your price records <span className="count-pill">{savedAll.length}</span></h2>
             <button className="secondary" onClick={() => onModal('observation')}>
               <Plus size={14} />Record
             </button>
           </div>
-          {saved.length ? (
+          {savedAll.length ? (
             <div className="table-scroll">
               <table>
                 <thead>
                   <tr><th>Price</th><th>Type</th><th>Source</th><th>Date</th><th /></tr>
                 </thead>
                 <tbody>
-                  {[...saved].sort((a, b) => b.data.observedAt.localeCompare(a.data.observedAt)).map((e) => (
+                  {[...savedAll].sort((a, b) => b.data.observedAt.localeCompare(a.data.observedAt)).map((e) => (
                     <tr key={e.id}>
                       <td className="price-cell">
                         {money(e.data.price, e.data.currency)}

@@ -69,3 +69,18 @@ export function retailLookupUrl(brand: string, reference: string) {
   const site = brandSiteFor(brand);
   return site ? `https://duckduckgo.com/?${new URLSearchParams({ q: `site:${site} ${reference}` })}` : `https://duckduckgo.com/?${new URLSearchParams({ q: `${brand} ${reference} retail price` })}`;
 }
+
+/** Exchange rates relative to EUR (ECB reference rates). */
+export type Fx = { date: string; rates: Record<string, number> };
+export function parseEcbRates(xml: string): Fx | null {
+  const date = xml.match(/time=['"](\d{4}-\d{2}-\d{2})['"]/)?.[1];
+  const rates: Record<string, number> = { EUR: 1 };
+  for (const m of xml.matchAll(/currency=['"]([A-Z]{3})['"]\s+rate=['"]([\d.]+)['"]/g)) rates[m[1]] = Number(m[2]);
+  return date && Object.keys(rates).length > 5 ? { date, rates } : null;
+}
+/** Converts with ECB rates; null when either currency has no rate. */
+export function convertPrice(price: number, from: string, to: string, fx: Fx | null) {
+  if (from === to) return price;
+  const a = fx?.rates[from], b = fx?.rates[to];
+  return a && b ? (price / a) * b : null;
+}

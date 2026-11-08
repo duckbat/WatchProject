@@ -1,5 +1,5 @@
 'use client';
-import { Globe2, SlidersHorizontal, Tag } from 'lucide-react';
+import { ArrowLeftRight, Globe2, SlidersHorizontal, Tag } from 'lucide-react';
 import { regions, statuses, type Prefs } from './shared';
 
 type Props = {
@@ -51,6 +51,13 @@ export default function FilterBar({ prefs, onPrefs, brand, brands, onBrand, exte
         <select aria-label="Statistic" value={prefs.method} onChange={set('method')}>
           <option value="median">Median</option>
           <option value="average">Average</option>
+        </select>
+      </label>
+      <label className={`filter-pill${prefs.convert === 'off' ? ' on' : ''}`} title="Convert prices in other currencies with ECB reference rates">
+        <ArrowLeftRight size={13} aria-hidden />
+        <select aria-label="Other currencies" value={prefs.convert || 'on'} onChange={set('convert')}>
+          <option value="on">Convert currencies</option>
+          <option value="off">Only {prefs.currency} prices</option>
         </select>
       </label>
       {extended && (
