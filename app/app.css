@@ -509,3 +509,5 @@
 .watch-tile h3 { min-height: calc(2 * 1.35em); }
 .tile-grid, .tile-row { align-items: stretch; }
 @media (max-width: 760px) { .watch-tile-photo { height: 170px; } }
+.price-row.sold { background: #fdf6f0; }
+.price-row.sold .price-value strong { color: #a65a1f; }

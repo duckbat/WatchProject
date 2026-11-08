@@ -126,10 +126,27 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const similar = listings.filter((l) => l.match === 'similar');
   const exactIn = exact.filter(liveIn);
   const similarIn = similar.filter(liveIn);
-  const livePrice = summarize(exactIn.map((l) => l.price), prefs.method);
   const similarPrice = summarize(similarIn.map((l) => l.price), prefs.method);
-  const marketPrice = livePrice ?? savedPrice;
-  const marketBasis = livePrice !== null ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${exactIn.length} exact-reference listing${exactIn.length === 1 ? '' : 's'} · ${periods.find(([v]) => v === prefs.period)?.[1]}${exactIn.some((l) => l.originalCurrency) ? ` · ${exactIn.filter((l) => l.originalCurrency).length} converted to ${prefs.currency}` : ''}` : savedPrice !== null ? `From ${latestListings(savedShown).length} of your saved prices` : '';
+  // Market price: asking AND sold prices for this exact reference (independent of the price-type chart filter).
+  const inScope = (o: { currency: string; country: string; condition: string; sellerType: string }) =>
+    o.currency === prefs.currency && inRegion(o.country, prefs.region) && (prefs.condition === 'all' || o.condition === prefs.condition) && (prefs.seller === 'all' || o.sellerType === prefs.seller);
+  const periodOk = (d: string) => prefs.period === '36500' || d >= periodStart(prefs.period);
+  const isSold = (status: string) => status === 'sold-asking' || status === 'confirmed-sale';
+  const exactUrls = new Set(exact.map((l) => l.url));
+  const pool = [
+    // Active marketplace listings count as current; forum posts count on their post date.
+    ...exact.map((l) => ({ ...l, date: l.status === 'asking' && (l.sourceId === 'tori' || l.sourceId === 'ebay') ? l.observedAt : l.listedAt || l.observedAt })).filter((l) => inScope(l) && periodOk(l.date)).map((l) => ({ price: l.price, status: l.status, date: l.date, converted: Boolean(l.originalCurrency) })),
+    ...latestListings(saved.filter((e) => inScope(e.data) && periodOk(e.data.observedAt) && !(e.data.url && exactUrls.has(e.data.url)))).map((e) => ({ price: e.data.price, status: e.data.status, date: e.data.observedAt, converted: Boolean((e.data as any).originalCurrency) })),
+  ];
+  const soldPool = pool.filter((p) => isSold(p.status));
+  const marketPrice = summarize(pool.map((p) => p.price), prefs.method);
+  const soldPrice = summarize(soldPool.map((p) => p.price), prefs.method);
+  const lastSold = soldPool.map((p) => p.date).sort().at(-1) || null;
+  const rangeLabel = periods.find(([v]) => v === prefs.period)?.[1];
+  const nConverted = pool.filter((p) => p.converted).length;
+  const marketBasis = pool.length
+    ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${pool.length} price${pool.length === 1 ? '' : 's'} (${pool.length - soldPool.length} asking · ${soldPool.length} sold) · ${rangeLabel}${nConverted ? ` · ${nConverted} converted to ${prefs.currency}` : ''}`
+    : '';
   const lows = exactIn.map((l) => l.price);
   const otherCurrencies = (live?.listings || []).filter((l) => l.match === 'exact' && !listings.some((x) => x.url === l.url)).map((l) => l.currency);
   const otherCurrency = otherCurrencies.length;
@@ -284,12 +301,22 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
             <div className="price-row market">
               <div>
-                <h3>Market price <span className="info" title="Median (or average) asking price of listings that name this exact reference, in the selected currency and region. Falls back to your saved prices." role="img" aria-label="About market price"><Info size={13} /></span></h3>
+                <h3>Market price <span className="info" title="Median (or average) of asking and sold prices for this exact reference in the selected currency, region and time range: live listings, forum posts and your saved prices." role="img" aria-label="About market price"><Info size={13} /></span></h3>
                 <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : similarPrice !== null ? `No exact listing now · similar models ${money(similarPrice, prefs.currency)}` : 'No exact-reference listings found'}</p>
               </div>
               <div className="price-value">
                 <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
                 <small>as of {fmtDate(today())}</small>
+              </div>
+            </div>
+            <div className="price-row sold">
+              <div>
+                <h3>Sold price <span className="info" title="Median of prices marked sold: sold r/Watchexchange posts, WatchUSeek SOLD threads, and sales you record or import. A 'sold · last ask' is the asking price of a watch that sold." role="img" aria-label="About sold price"><Info size={13} /></span></h3>
+                <p>{soldPool.length ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${soldPool.length} sold · ${rangeLabel}` : 'No sold prices in this range yet'}</p>
+              </div>
+              <div className="price-value">
+                <strong>{money(soldPrice, prefs.currency)}</strong>
+                {lastSold && <small>last sold {fmtDate(lastSold)}</small>}
               </div>
             </div>
             {(metrics.dealerPrice !== null || fees) && (
@@ -416,7 +443,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               <FilterBar prefs={prefs} onPrefs={onPrefs} extended />
             </div>
             {chartPoints.length ? (
-              <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={livePrice ?? null} />
+              <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} />
             ) : (
               <div className="chart-empty">
                 <div className="empty-chart-lines" />
