@@ -11,7 +11,7 @@ import { listingKind } from '../lib/market-archive/listings';
 import PriceScatter, { sourceColors, type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
 import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
-import { computeMetrics, dedupeCrossPosts, withoutOutliers, type MetricPrice } from '../lib/metrics';
+import { computeMetrics, dedupeCrossPosts, median, withoutOutliers, type MetricPrice } from '../lib/metrics';
 import ModelSpecs from './model-specs';
 import { FavoriteButton } from './favorites';
 import { RememberPrice } from './price-cache';
@@ -70,6 +70,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [newRegion, setNewRegion] = useState('Global');
   const [showGoneOffers, setShowGoneOffers] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [dialsOpen, setDialsOpen] = useState(false);
 
   useEffect(() => {
     if (model) return;
@@ -108,13 +109,17 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     }
   }, [modelId, loadLive, signedIn]);
 
-  // The new-price dialog closes with Escape, like the other dialogs.
+  // The new-price and dial dialogs close with Escape, like the other dialogs.
   useEffect(() => {
-    if (!newOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setNewOpen(false);
+    if (!newOpen && !dialsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setNewOpen(false);
+      setDialsOpen(false);
+    };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
-  }, [newOpen]);
+  }, [newOpen, dialsOpen]);
 
   // Other dials/bracelets of the same reference, for the picker under the photo.
   useEffect(() => {
@@ -168,6 +173,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const base = baseReference(model.reference);
   const hasVariants = variants.length > 1;
   const variantTerms = variantQuery.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const currentVariant = variants.find((v) => v.id === model.id);
   const shownVariants = variants.filter((v) => variantTerms.every((term) => `${v.label} ${v.reference}`.toLocaleLowerCase().includes(term)));
   const allDials = hasVariants && prefs.dialScope !== 'dial';
   const dialKnown = expectedDial(model.name).size === 1;
@@ -284,10 +290,23 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     const shops = perSite(shopOffers.filter((l) => !l.archived && forDial(v, l)));
     return { used: usedAverage(used), usedN: used.length, fresh: average(shops), freshN: shops.length };
   };
-  const allDialPrices = {
-    used: usedAverage(baseListings.filter((l) => l.currency === prefs.currency).map((l) => l.price)),
-    fresh: shopAverage,
-  };
+  // All dials: ranges instead of averages (cheapest to most expensive, far-off prices excluded), plus sales over
+  // five years: the cheapest one and the median.
+  const kept = (prices: number[]) => withoutOutliers(prices, (x) => x).kept.sort((a, b) => a - b);
+  const allUsed = kept(baseListings.filter((l) => l.currency === prefs.currency).map((l) => l.price));
+  const allNew = currentShopOffers.map((l) => l.price).sort((a, b) => a - b);
+  const fiveYears = periodStart('1826');
+  const allSold = kept(
+    listings
+      .filter((l) => (l.status === 'confirmed-sale' || l.status === 'sold-asking') && l.currency === prefs.currency && (l.listedAt || l.observedAt) >= fiveYears)
+      .filter((l) => exactMatch(l.title, { brand: model.brand, reference: base }, l.matchDetails))
+      .map((l) => l.price),
+  ).filter((price) => {
+    // Few sales cannot judge their own outliers: compare with the (larger) used-listing pool instead.
+    const typical = allUsed.length >= 5 ? median(allUsed)! : null;
+    return typical === null || (price >= typical * 0.4 && price <= typical * 2.5);
+  });
+  const priceRange = (xs: number[]) => (!xs.length ? '–' : xs[0] === xs[xs.length - 1] ? money(xs[0], prefs.currency) : `${money(xs[0], prefs.currency)} – ${money(xs[xs.length - 1], prefs.currency)}`);
   const compact = (n: number | null) => (n === null ? '–' : new Intl.NumberFormat('en', { style: 'currency', currency: prefs.currency, notation: 'compact', maximumFractionDigits: 1 }).format(n));
   const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
@@ -408,31 +427,26 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             {owned.length > 0 && <span className="owned-tag">In my watches</span>}
           </div>
           {variants.length > 1 ? (
-            <div className="variant-picker">
-              <p className="variant-head">
-                <span>{allDials ? `All dials · Ref. ${base}` : variants.find((v) => v.id === model.id)?.label || model.name}</span>
-                <small>{variantQuery ? `${shownVariants.length} of ${variants.length} variants` : `${variants.length} variants`}</small>
-              </p>
-              {variants.length > 11 && <input className="variant-search" type="search" aria-label="Search dials and bracelets" placeholder="Search dials, bracelets or reference…" value={variantQuery} onChange={(e) => setVariantQuery(e.target.value)} />}
-              <div className="variant-grid" role="group" aria-label="Dials and bracelets">
-                <button className={`all-dials${allDials ? ' active' : ''}`} aria-pressed={allDials} title={`Price across all ${variants.length} variants of Ref. ${base}`} onClick={() => onPrefs({ ...prefs, dialScope: 'all' })}>
-                  <span className="variant-thumb"><span className="all-dials-icon">{variants.slice(0, 4).map((v) => <i key={v.id} style={{ background: (v.dial && dialSwatch[v.dial]) || '#bbb' }} />)}</span></span>
-                  <span className="variant-name">All dials</span>
-                  {dialPrice(allDialPrices.used, allDialPrices.fresh)}
+            <div className="dial-scope">
+              <div className="dial-switch" role="group" aria-label="Which dials the prices cover">
+                <button className={allDials ? 'active' : ''} aria-pressed={allDials} onClick={() => onPrefs({ ...prefs, dialScope: 'all' })}>
+                  <span className="all-dials-icon" aria-hidden>{variants.slice(0, 4).map((v) => <i key={v.id} style={{ background: (v.dial && dialSwatch[v.dial]) || '#bbb' }} />)}</span>
+                  <span><strong>All dials</strong><small>{variants.length} variants of Ref. {base}</small></span>
                 </button>
-                {shownVariants.map((v) => { const dp = dialPrices(v); return (
-                  <button key={v.id} className={!allDials && v.id === model.id ? 'active' : ''} aria-pressed={!allDials && v.id === model.id} title={`${v.label} · Ref. ${v.reference}\nSecond-hand average: ${dp.used === null ? 'no prices' : `${money(dp.used, prefs.currency)} (${dp.usedN})`}\nShop new average: ${dp.fresh === null ? 'no offers' : `${money(dp.fresh, prefs.currency)} (${dp.freshN} website${dp.freshN === 1 ? '' : 's'})`}`} onClick={() => { if (prefs.dialScope !== 'dial') onPrefs({ ...prefs, dialScope: 'dial' }); if (v.id !== model.id) onNavigate({ view: 'watch', id: v.id }); }}>
-                    <span className="variant-thumb"><WatchPhoto model={v} credit={false} iconSize={16} /></span>
-                    <span className="variant-name">
-                      {v.dial && <i className="swatch" style={{ background: dialSwatch[v.dial] || '#999' }} />}
-                      {v.label}
-                    </span>
-                    <small>{v.reference}</small>
-                    {dialPrice(dp.used, dp.fresh)}
-                  </button>
-                ); })}
+                <button className={!allDials ? 'active' : ''} aria-pressed={!allDials} aria-haspopup="dialog" onClick={() => setDialsOpen(true)}>
+                  {!allDials && currentVariant ? <span className="variant-thumb small"><WatchPhoto model={currentVariant} credit={false} iconSize={14} /></span> : <span className="dial-pick-icon" aria-hidden><ChevronsRight size={15} /></span>}
+                  <span><strong>{!allDials && currentVariant ? currentVariant.label : 'Choose a dial'}</strong><small>{!allDials ? 'This dial only · change' : 'Price one dial'}</small></span>
+                  <ChevronRight size={15} />
+                </button>
               </div>
-              {shownVariants.length === 0 && <p className="muted">No matching dial or bracelet. Try a colour, Palm, fluted motif or reference.</p>}
+              {allDials && (
+                <dl className="dial-summary" aria-busy={liveState === 'loading'}>
+                  <div><dt>Used price range</dt><dd>{liveState === 'loading' && !live ? <span className="skeleton-line" style={{ width: 120 }} /> : priceRange(allUsed)}</dd><small>{allUsed.length} listing{allUsed.length === 1 ? '' : 's'} · {rangeLabel}</small></div>
+                  <div><dt>New price range</dt><dd>{liveState === 'loading' && !live ? <span className="skeleton-line" style={{ width: 120 }} /> : priceRange(allNew)}</dd><small>{allNew.length} shop website{allNew.length === 1 ? '' : 's'}, cheapest offer each</small></div>
+                  <div><dt>Cheapest sale · 5 years</dt><dd>{allSold.length ? money(allSold[0], prefs.currency) : '–'}</dd><small>{allSold.length} sale{allSold.length === 1 ? '' : 's'} recorded</small></div>
+                  <div><dt>Median used sale · 5 years</dt><dd>{allSold.length ? money(median(allSold), prefs.currency) : '–'}</dd><small>sold listings and auction results</small></div>
+                </dl>
+              )}
             </div>
           ) : (
             family && <p className="detail-variant">{model.name}{model.size ? ` · ${model.size}` : ''}</p>
@@ -738,6 +752,30 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       {/* Cards show the default view (1 year, all world, all dials, median); save this page's price only when it matches. */}
       {liveState === 'ready' && marketPrice !== null && prefs.region === 'Global' && prefs.period === '365' && prefs.method === 'median' && prefs.basis === 'all' && prefs.condition === 'all' && prefs.seller === 'all' && (!hasVariants || allDials) && (
         <RememberPrice id={model.id} market={{ price: Math.round(marketPrice), currency: prefs.currency, count: pool.length }} />
+      )}
+      {dialsOpen && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setDialsOpen(false)}>
+          <section className="modal dials-modal" role="dialog" aria-modal="true" aria-labelledby="dials-title">
+            <button className="close icon-btn" aria-label="Close dialog" onClick={() => setDialsOpen(false)}><X size={21} /></button>
+            <h2 id="dials-title">Choose a dial · Ref. {base}</h2>
+            <p className="modal-sub">Average second-hand price and new shop price per dial ({rangeLabel}, {prefs.currency}). Choosing a dial prices that dial only.</p>
+            {variants.length > 8 && <input className="variant-search" type="search" autoFocus aria-label="Search dials and bracelets" placeholder="Search dials, bracelets or reference…" value={variantQuery} onChange={(e) => setVariantQuery(e.target.value)} />}
+            <div className="variant-grid" role="group" aria-label="Dials and bracelets">
+              {shownVariants.map((v) => { const dp = dialPrices(v); return (
+                <button key={v.id} className={!allDials && v.id === model.id ? 'active' : ''} aria-pressed={!allDials && v.id === model.id} title={`${v.label} · Ref. ${v.reference}\nSecond-hand average: ${dp.used === null ? 'no prices' : `${money(dp.used, prefs.currency)} (${dp.usedN})`}\nShop new average: ${dp.fresh === null ? 'no offers' : `${money(dp.fresh, prefs.currency)} (${dp.freshN} website${dp.freshN === 1 ? '' : 's'})`}`} onClick={() => { if (prefs.dialScope !== 'dial') onPrefs({ ...prefs, dialScope: 'dial' }); setDialsOpen(false); if (v.id !== model.id) onNavigate({ view: 'watch', id: v.id }); }}>
+                  <span className="variant-thumb"><WatchPhoto model={v} credit={false} iconSize={16} /></span>
+                  <span className="variant-name">
+                    {v.dial && <i className="swatch" style={{ background: dialSwatch[v.dial] || '#999' }} />}
+                    {v.label}
+                  </span>
+                  <small>{v.reference}</small>
+                  {dialPrice(dp.used, dp.fresh)}
+                </button>
+              ); })}
+            </div>
+            {shownVariants.length === 0 && <p className="muted-line">No matching dial or bracelet. Try a colour, Palm, fluted motif or reference.</p>}
+          </section>
+        </div>
       )}
       {newOpen && (
         <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setNewOpen(false)}>

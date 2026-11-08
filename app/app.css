@@ -578,9 +578,25 @@
 /* ---------- Variants (dial/bracelet) and card prices ---------- */
 .variant-count { align-self: flex-start; display: inline-block; margin-top: 6px; font-size: 11px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 8px; }
 .suggestion-price { font-weight: 650; font-size: 13px; color: var(--ink); white-space: nowrap; }
-.variant-picker { margin-top: 14px; }
-.variant-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 10px; font-size: 14px; font-weight: 600; }
-.variant-head small { color: var(--muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+/* Dial scope under the photo: All dials or one dial (chosen in a dialog), with the All dials summary. */
+.dial-scope { margin-top: 16px; }
+.dial-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dial-switch button { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); text-align: left; color: var(--ink); }
+.dial-switch button:hover { border-color: #c8d3c0; }
+.dial-switch button.active { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.dial-switch button > span:nth-child(2) { flex: 1; min-width: 0; }
+.dial-switch strong { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dial-switch small { display: block; font-size: 12px; color: var(--muted); }
+.dial-switch .variant-thumb.small { width: 36px; height: 36px; flex-shrink: 0; }
+.dial-pick-icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); flex-shrink: 0; }
+.dial-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 10px 0 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--line-2); }
+.dial-summary > div { background: var(--surface); padding: 12px 14px; }
+.dial-summary dt { font-size: 12px; color: var(--muted); }
+.dial-summary dd { margin: 2px 0 0; font-size: 15px; font-weight: 650; color: var(--ink); }
+.dial-summary small { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.dials-modal { width: 760px; }
+.dials-modal h2 { margin: 0 32px 6px 0; }
+.dials-modal .variant-grid { max-height: min(62vh, 560px); grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
 .variant-search { width: 100%; margin-bottom: 10px; }
 .variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; max-height: 360px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; scrollbar-width: thin; }
 .variant-grid button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 11px; color: var(--ink-2); line-height: 1.25; text-align: center; }
