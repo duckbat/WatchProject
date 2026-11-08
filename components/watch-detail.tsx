@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, ChevronRight, ChevronsRight, ExternalLink, Info, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, ChevronRight, ChevronsRight, ExternalLink, Info, Plus, RefreshCw, Store, Trash2, Watch, X } from 'lucide-react';
 import { brandSiteFor, convertPrice, countries, defaultSources, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
 import { baseReference } from '../lib/collectors/matching/reference';
@@ -68,6 +68,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [variants, setVariants] = useState<Model[]>([]);
   const [variantQuery, setVariantQuery] = useState('');
   const [newRegion, setNewRegion] = useState('Global');
+  const [showGoneOffers, setShowGoneOffers] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
 
   useEffect(() => {
     if (model) return;
@@ -105,6 +107,14 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       setLiveError('Sign in to load live marketplace prices.');
     }
   }, [modelId, loadLive, signedIn]);
+
+  // The new-price dialog closes with Escape, like the other dialogs.
+  useEffect(() => {
+    if (!newOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setNewOpen(false);
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [newOpen]);
 
   // Other dials/bracelets of the same reference, for the picker under the photo.
   useEffect(() => {
@@ -240,26 +250,45 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     const price = toCur(l.price, l.currency);
     return price === null ? [] : [{ ...l, price, currency: prefs.currency, originalPrice: l.price, originalCurrency: l.currency }];
   }).sort((a, b) => a.price - b.price);
-  const currentShopOffers = shopOffers.filter((l) => !l.archived);
-  const cheapestShop = currentShopOffers[0];
-  // Average new price across the shops currently offering this watch (each offer once; used listings excluded).
-  const shopAverage = currentShopOffers.length ? currentShopOffers.reduce((sum, l) => sum + l.price, 0) / currentShopOffers.length : null;
-  const shopNames = [...new Set(currentShopOffers.map((l) => sourceName(l.sourceId)))];
+  // One offer per website: its cheapest in-stock one (eBay can have many dealer listings; it counts once).
+  // Websites with nothing in stock any more keep their last seen offer, shown separately.
+  const perSite = (offers: LiveListing[]) => {
+    const best = new Map<string, LiveListing>();
+    for (const l of offers) if (!best.has(l.sourceId) || l.price < best.get(l.sourceId)!.price) best.set(l.sourceId, l);
+    return [...best.values()].sort((a, b) => a.price - b.price);
+  };
   // New price by region: an offer's item location, or the shop's home country when the offer has none.
   const offerCountry = (l: LiveListing) => (l.country !== 'UNKNOWN' ? l.country : defaultSources.find((s) => s.id === l.sourceId)?.country || 'UNKNOWN');
   const newRegions: [string, string][] = [['Global', 'All'], ['EU', 'EU'], ['US', 'US'], ['Asia', 'Asia']];
   const offersIn = (r: string) => shopOffers.filter((l) => r === 'Global' || inRegion(offerCountry(l), r));
-  const newAverage = (r: string) => {
-    const now = offersIn(r).filter((l) => !l.archived);
-    return { n: now.length, value: now.length ? now.reduce((sum, l) => sum + l.price, 0) / now.length : null };
+  const sitesIn = (r: string) => {
+    const current = perSite(offersIn(r).filter((l) => !l.archived));
+    return { current, gone: perSite(offersIn(r).filter((l) => l.archived && !current.some((c) => c.sourceId === l.sourceId))) };
   };
-  // Each offer's daily prices (converted at today's rate), so a shop's price change shows as movement in the graph.
-  const newHistory = offersIn(newRegion).flatMap((l) =>
-    (l.history?.length ? l.history : [{ date: l.observedAt, price: l.originalPrice ?? l.price }]).flatMap((h) => {
-      const price = toCur(h.price, l.originalCurrency || l.currency);
-      return price === null || !periodOk(h.date) ? [] : [{ date: h.date, price }];
-    }),
-  );
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((sum, x) => sum + x, 0) / xs.length : null);
+  const average = (offers: LiveListing[]) => mean(offers.map((l) => l.price));
+  const allSites = sitesIn('Global');
+  const currentShopOffers = allSites.current;
+  const cheapestShop = currentShopOffers[0];
+  const shopAverage = average(currentShopOffers);
+  const newSites = sitesIn(newRegion);
+
+  // Average price per dial variant, second-hand and new. A listing counts for a dial when it names that variant's
+  // full reference, or the base reference plus the dial's colour (a shop's own dial field counts too).
+  const baseListings = listings.filter((l) => periodOk(l.listedAt || l.observedAt) && exactMatch(l.title, { brand: model.brand, reference: base }, l.matchDetails));
+  const forDial = (v: Model, l: LiveListing) =>
+    exactMatch(l.title, v, l.matchDetails) || namesDial(`${l.title} ${l.matchDetails || ''}${l.identity?.dial ? ` ${l.identity.dial} dial` : ''}`, v.name);
+  const usedAverage = (prices: number[]) => mean(withoutOutliers(prices, (x) => x).kept);
+  const dialPrices = (v: Model) => {
+    const used = baseListings.filter((l) => l.currency === prefs.currency && forDial(v, l)).map((l) => l.price);
+    const shops = perSite(shopOffers.filter((l) => !l.archived && forDial(v, l)));
+    return { used: usedAverage(used), usedN: used.length, fresh: average(shops), freshN: shops.length };
+  };
+  const allDialPrices = {
+    used: usedAverage(baseListings.filter((l) => l.currency === prefs.currency).map((l) => l.price)),
+    fresh: shopAverage,
+  };
+  const compact = (n: number | null) => (n === null ? '–' : new Intl.NumberFormat('en', { style: 'currency', currency: prefs.currency, notation: 'compact', maximumFractionDigits: 1 }).format(n));
   const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
   // Most prices first; the order fixes each source's colour, shared by its button and its dots.
@@ -285,6 +314,39 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       setSaving('');
     }
   }
+
+  // Second-hand and new averages on a dial tile; while sources are checked, a shimmer stands in.
+  const dialPrice = (used: number | null, fresh: number | null) =>
+    liveState === 'loading' && !live ? (
+      <span className="dial-price"><span className="skeleton-line" style={{ width: 54, height: 9 }} /></span>
+    ) : (
+      <span className="dial-price">
+        <span title="Second-hand market average">Used {compact(used)}</span>
+        <span title="Professional shops, new (one offer per website)">New {compact(fresh)}</span>
+      </span>
+    );
+
+  // One place selling the watch new: shop, where it ships from, its price and a link.
+  const shopOfferRow = (l: LiveListing, region?: string) => {
+    const more = region ? offersIn(region).filter((o) => !o.archived && o.sourceId === l.sourceId).length - 1 : 0;
+    return (
+    <a key={l.url} className={`shop-offer${l.archived ? ' gone' : ''}`} href={l.url} target="_blank" rel="noreferrer">
+      <span>
+        <strong>{sourceName(l.sourceId)}</strong>
+        <small>
+          {countries[offerCountry(l)] || 'Location not stated'} · {l.archived ? `last seen ${fmtDate((l.lastSeenAt || l.collectedAt).slice(0, 10))}` : `in stock · checked ${fmtDate(l.observedAt)}`}
+        </small>
+        <small className="shop-offer-title">{l.title}</small>
+        {more > 0 && <small>Cheapest of {more + 1} offers on this website</small>}
+      </span>
+      <span>
+        <strong>{money(l.price, l.currency)}</strong>
+        {l.originalCurrency && l.originalCurrency !== prefs.currency && <small>{money(l.originalPrice ?? null, l.originalCurrency)}</small>}
+      </span>
+      <ArrowUpRight size={15} />
+    </a>
+    );
+  };
 
   const ListingCard = ({ l }: { l: LiveListing }) => {
     const isSaved = savedToday.has(l.url);
@@ -319,6 +381,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   };
 
   const family = (model as Model & { family?: string }).family;
+  // Checking sources again while older results stay on screen.
+  const refreshing = liveState === 'loading' && Boolean(live);
   const okSources = live?.sources.filter((s) => s.status === 'ok').length ?? 0;
   const chrono24Url = live?.sources.find((x) => x.id === 'chrono24')?.searchUrl;
   const regionName = regions.find(([r]) => r === prefs.region)?.[1];
@@ -354,17 +418,19 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 <button className={`all-dials${allDials ? ' active' : ''}`} aria-pressed={allDials} title={`Price across all ${variants.length} variants of Ref. ${base}`} onClick={() => onPrefs({ ...prefs, dialScope: 'all' })}>
                   <span className="variant-thumb"><span className="all-dials-icon">{variants.slice(0, 4).map((v) => <i key={v.id} style={{ background: (v.dial && dialSwatch[v.dial]) || '#bbb' }} />)}</span></span>
                   <span className="variant-name">All dials</span>
+                  {dialPrice(allDialPrices.used, allDialPrices.fresh)}
                 </button>
-                {shownVariants.map((v) => (
-                  <button key={v.id} className={!allDials && v.id === model.id ? 'active' : ''} aria-pressed={!allDials && v.id === model.id} title={`${v.label} · Ref. ${v.reference}`} onClick={() => { if (prefs.dialScope !== 'dial') onPrefs({ ...prefs, dialScope: 'dial' }); if (v.id !== model.id) onNavigate({ view: 'watch', id: v.id }); }}>
+                {shownVariants.map((v) => { const dp = dialPrices(v); return (
+                  <button key={v.id} className={!allDials && v.id === model.id ? 'active' : ''} aria-pressed={!allDials && v.id === model.id} title={`${v.label} · Ref. ${v.reference}\nSecond-hand average: ${dp.used === null ? 'no prices' : `${money(dp.used, prefs.currency)} (${dp.usedN})`}\nShop new average: ${dp.fresh === null ? 'no offers' : `${money(dp.fresh, prefs.currency)} (${dp.freshN} website${dp.freshN === 1 ? '' : 's'})`}`} onClick={() => { if (prefs.dialScope !== 'dial') onPrefs({ ...prefs, dialScope: 'dial' }); if (v.id !== model.id) onNavigate({ view: 'watch', id: v.id }); }}>
                     <span className="variant-thumb"><WatchPhoto model={v} credit={false} iconSize={16} /></span>
                     <span className="variant-name">
                       {v.dial && <i className="swatch" style={{ background: dialSwatch[v.dial] || '#999' }} />}
                       {v.label}
                     </span>
                     <small>{v.reference}</small>
+                    {dialPrice(dp.used, dp.fresh)}
                   </button>
-                ))}
+                ); })}
               </div>
               {shownVariants.length === 0 && <p className="muted">No matching dial or bracelet. Try a colour, Palm, fluted motif or reference.</p>}
             </div>
@@ -374,7 +440,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         </div>
 
         <div className="detail-info">
-          <div className="price-box">
+          <div className={`price-box${liveState === 'loading' ? ' is-refreshing' : ''}`} aria-busy={liveState === 'loading'}>
             <div className="price-row">
               <div>
                 <h3>Official retail (MSRP) <span className="info" title="Official list price entered or saved by you. It is used for value retention; current shop selling prices are shown separately." role="img" aria-label="About retail price"><Info size={13} /></span></h3>
@@ -409,9 +475,13 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               )}
             </div>
             <div className="price-row">
-              <div><h3>Shop price (new)</h3><p>{cheapestShop ? `Average of ${currentShopOffers.length} in-stock offer${currentShopOffers.length === 1 ? '' : 's'} · ${shopNames.join(', ')}${allDials ? ' · all dials' : ''}` : liveState === 'loading' ? 'Checking watch shops…' : 'No current matching shop offer'}</p></div>
+              <div>
+                <h3>Shop price (new)</h3>
+                <p>{cheapestShop ? `Average of ${currentShopOffers.length} website${currentShopOffers.length === 1 ? '' : 's'}, cheapest offer each${allDials ? ' · all dials' : ''}` : liveState === 'loading' ? 'Checking watch shops…' : 'Not for sale new at the checked shops'}</p>
+                {(cheapestShop || allSites.gone.length > 0) && <button className="text-btn new-price-open" onClick={() => setNewOpen(true)}>See prices and places <ChevronRight size={13} /></button>}
+              </div>
               <div className="price-value">
-                {cheapestShop && shopAverage !== null ? <><strong>{money(shopAverage, prefs.currency)}</strong><small>lowest <a href={cheapestShop.url} target="_blank" rel="noreferrer">{money(cheapestShop.price, prefs.currency)} at {sourceName(cheapestShop.sourceId)} <ArrowUpRight size={11} /></a></small></> : <strong>—</strong>}
+                {liveState === 'loading' && !cheapestShop ? <span className="skeleton-line big" aria-label="Loading shop prices" /> : cheapestShop && shopAverage !== null ? <><strong className={refreshing ? 'updating' : ''}>{money(shopAverage, prefs.currency)}</strong><small>lowest {money(cheapestShop.price, prefs.currency)} at {sourceName(cheapestShop.sourceId)}</small></> : <strong>—</strong>}
               </div>
             </div>
             <div className="price-row market">
@@ -420,7 +490,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 <p>{liveState === 'loading' && marketPrice === null ? 'Checking marketplaces…' : marketPrice === null ? (hasVariants && !allDials ? 'No prices for this dial yet' : 'No prices found yet') : `Asking prices and published sales${hasVariants ? (allDials ? ' · all dials' : ' · this dial') : ''}`}</p>
               </div>
               <div className="price-value">
-                <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
+                {liveState === 'loading' && marketPrice === null ? <span className="skeleton-line big" aria-label="Loading market price" /> : <strong className={`big${refreshing ? ' updating' : ''}`}>{money(marketPrice, prefs.currency)}</strong>}
                 {marketPrice !== null && <small>as of {fmtDate(today())} · {pool.length} price{pool.length === 1 ? '' : 's'}</small>}
               </div>
             </div>
@@ -458,7 +528,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>{l}</button>
               ))}
             </div>
-            <PriceHistory prices={historyPrices} currency={prefs.currency} period={prefs.period} method={prefs.method} />
+            {liveState === 'loading' && !live ? <div className="skeleton-chart" aria-label="Loading price history" /> : <PriceHistory prices={historyPrices} currency={prefs.currency} period={prefs.period} method={prefs.method} />}
           </div>
 
           <div className="detail-status" role="status">
@@ -499,34 +569,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         </div>
       </section>
 
-      <section className="panel new-price">
-        <div className="chart-card-head">
-          <div>
-            <h2>New price</h2>
-            <p>Watch shops and dealers selling this reference new · separate from the pre-owned market</p>
-          </div>
-        </div>
-        <div className="region-tabs" role="tablist" aria-label="New price region">
-          {newRegions.map(([r, label]) => {
-            const { n, value } = newAverage(r);
-            return (
-              <button key={r} role="tab" aria-selected={newRegion === r} className={newRegion === r ? 'active' : ''} onClick={() => setNewRegion(r)}>
-                {label}
-                <small>{value === null ? 'no offers' : `${money(value, prefs.currency)} · ${n}`}</small>
-              </button>
-            );
-          })}
-        </div>
-        {newHistory.length ? (
-          <PriceHistory prices={newHistory} currency={prefs.currency} period={prefs.period} method={prefs.method} />
-        ) : (
-          <p className="muted-line">
-            No new-watch offers {newRegion === 'Global' ? 'yet' : `in ${newRegions.find(([r]) => r === newRegion)?.[1]} yet`}. Shops checked: Laatukellot (Finland), Keskisen Kello (Finland); eBay dealers in the US, EU and Asia once the eBay keys are enabled.
-          </p>
-        )}
-      </section>
-
-      <section className="panel chart-card">
+      <section className={`panel chart-card${liveState === 'loading' ? ' is-refreshing' : ''}`} aria-busy={liveState === 'loading'}>
         <div className="chart-card-head">
           <h2>Charts &amp; metrics</h2>
           <button className="text-btn" onClick={() => setSpecsOpen(true)}>Model specifications <ChevronsRight size={15} /></button>
@@ -560,24 +603,25 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 {hiddenOutliers > 0 && <p className="fine">{hiddenOutliers} far-off price{hiddenOutliers === 1 ? '' : 's'} hidden (also excluded from the market price).</p>}
               </>
             ) : (
-              <div className="chart-empty">
-                <div className="empty-chart-lines" />
-                <h3>{liveState === 'loading' ? 'Loading prices…' : 'No prices for these filters yet'}</h3>
-              </div>
+              liveState === 'loading' ? (
+                <div className="skeleton-chart" aria-label="Loading prices" />
+              ) : (
+                <div className="chart-empty">
+                  <div className="empty-chart-lines" />
+                  <h3>No prices for these filters yet</h3>
+                </div>
+              )
             )}
           </>
         )}
         {chartTab === 'volume' && <VolumeChart period={prefs.period} points={metricPrices.filter((p) => prefs.period === '36500' || p.date >= periodStart(prefs.period)).map((p) => ({ date: p.date, sold: p.status !== 'asking' }))} />}
         {chartTab === 'days' && <DaysChart ages={ages} />}
+        <div className={liveState === 'loading' && !live ? 'metrics-loading' : ''}>
         <MetricsGrid m={metrics} hasRetail={Boolean(retail)} onRetail={() => { setRetailEdit(true); scrollTo({ top: 0, behavior: 'smooth' }); }} />
+        </div>
       </section>
 
-      {shopOffers.length > 0 && <section className="panel">
-        <div className="section-head"><h2>New-watch shop offers <span className="count-pill">{shopOffers.length}</span></h2></div>
-        <p className="muted-line">Current shop selling prices, separate from official MSRP and the used-market graph.</p>
-        <div className="shop-offers">{shopOffers.map((l) => <a key={l.url} className="shop-offer" href={l.url} target="_blank" rel="noreferrer"><span><strong>{sourceName(l.sourceId)}</strong><small>{l.title}{l.archived ? ` · Last observed ${fmtDate((l.lastSeenAt || l.collectedAt).slice(0, 10))}; availability unverified` : ` · Checked ${fmtDate(l.observedAt)}`}</small></span><span><strong>{money(l.price, l.currency)}</strong>{l.originalCurrency !== prefs.currency && <small>Originally {money(l.originalPrice, l.originalCurrency)}</small>}</span><ArrowUpRight size={15} /></a>)}</div>
-      </section>}
-      <section className="panel">
+      <section className={`panel${liveState === 'loading' ? ' is-refreshing' : ''}`} aria-busy={liveState === 'loading'}>
         <div className="section-head">
           <h2>Listings <span className="count-pill">{exactIn.length}</span></h2>
         </div>
@@ -694,6 +738,40 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       {/* Cards show the default view (1 year, all world, all dials, median); save this page's price only when it matches. */}
       {liveState === 'ready' && marketPrice !== null && prefs.region === 'Global' && prefs.period === '365' && prefs.method === 'median' && prefs.basis === 'all' && prefs.condition === 'all' && prefs.seller === 'all' && (!hasVariants || allDials) && (
         <RememberPrice id={model.id} market={{ price: Math.round(marketPrice), currency: prefs.currency, count: pool.length }} />
+      )}
+      {newOpen && (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && setNewOpen(false)}>
+          <section className="modal new-price-modal" role="dialog" aria-modal="true" aria-labelledby="new-price-title">
+            <button className="close icon-btn" aria-label="Close dialog" onClick={() => setNewOpen(false)}><X size={21} /></button>
+            <h2 id="new-price-title">New price · Ref. {model.reference}</h2>
+            <p className="modal-sub">Where it is for sale new: one offer per website (its cheapest), prices in {prefs.currency}.</p>
+            <div className="region-tabs" role="tablist" aria-label="Region">
+              {newRegions.map(([r, label]) => {
+                const { current } = sitesIn(r), value = average(current);
+                return (
+                  <button key={r} role="tab" aria-selected={newRegion === r} className={newRegion === r ? 'active' : ''} onClick={() => setNewRegion(r)}>
+                    {label}
+                    <small>{value === null ? 'none' : `${money(value, prefs.currency)} · ${current.length}`}</small>
+                  </button>
+                );
+              })}
+            </div>
+            {newSites.current.length ? (
+              <div className="shop-offers">{newSites.current.map((l) => shopOfferRow(l, newRegion))}</div>
+            ) : (
+              <p className="muted-line">Not for sale new {newRegion === 'Global' ? 'at the checked shops' : `in ${newRegions.find(([r]) => r === newRegion)?.[1]}`} right now.</p>
+            )}
+            {newSites.gone.length > 0 && (
+              <div className="similar-block">
+                <button className="text-btn" aria-expanded={showGoneOffers} onClick={() => setShowGoneOffers((v) => !v)}>
+                  {showGoneOffers ? 'Hide' : 'Show'} {newSites.gone.length} no longer listed <ChevronRight size={14} className={showGoneOffers ? 'rot' : ''} />
+                </button>
+                {showGoneOffers && <div className="shop-offers">{newSites.gone.map((l) => shopOfferRow(l))}</div>}
+              </div>
+            )}
+            <p className="fine">Checked: eBay dealers (US, EU, Asia), Laatukellot and Keskisen Kello (Finland). Shop asking prices, not official retail.</p>
+          </section>
+        </div>
       )}
       {specsOpen && <ModelSpecs model={model} onClose={() => setSpecsOpen(false)} onOpen={(id) => { setSpecsOpen(false); onNavigate({ view: 'watch', id }); }} />}
     </div>
