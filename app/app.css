@@ -500,3 +500,12 @@
 .kind-toggle button { flex: 1; padding: 9px 10px; font-size: 13px; color: var(--ink-2); background: var(--surface); }
 .kind-toggle button + button { border-left: 1px solid var(--line); }
 .kind-toggle button.on { background: var(--accent); color: #fff; font-weight: 600; }
+/* Uniform watch cards: fixed image box, every photo scaled to the same height, text rows aligned */
+.watch-tile-photo { aspect-ratio: auto; height: 230px; overflow: hidden; position: relative; display: block; background: #f3f5ef; }
+.watch-tile-photo .watch-photo { position: absolute; inset: 0; margin: auto; height: 84%; width: 86%; max-width: none; padding: 0; object-fit: contain; }
+.watch-tile-photo .watch-placeholder { position: absolute; inset: 0; display: grid; place-items: center; }
+.watch-tile-photo .photo-credit { position: absolute; left: 8px; bottom: 6px; }
+.watch-tile-brand, .watch-tile p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.watch-tile h3 { min-height: calc(2 * 1.35em); }
+.tile-grid, .tile-row { align-items: stretch; }
+@media (max-width: 760px) { .watch-tile-photo { height: 170px; } }
