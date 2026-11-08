@@ -1,0 +1,6 @@
+---
+description: WatchLedger project skill routing and verified architecture
+alwaysApply: true
+---
+
+Read `AGENTS.md` for project guidance and load only applicable `.agents/skills/*/SKILL.md` files. Use `PROJECT_CONTEXT.md` for code paths; verify them against the current checkout.

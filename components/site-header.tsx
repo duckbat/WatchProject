@@ -54,6 +54,7 @@ export default function SiteHeader({ route, me, brands, ownedCount, observationC
       <div className="site-header-inner">
         <a
           className="logo"
+          aria-label="WatchLedger home"
           href="/"
           onClick={(e) => {
             e.preventDefault();

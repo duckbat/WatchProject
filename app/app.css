@@ -65,7 +65,8 @@
 .main-nav button { padding: 8px 12px; border-radius: 8px; font-size: 14px; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
 .main-nav button:hover { background: var(--accent-soft); color: var(--accent); }
 .main-nav button.active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-.header-search { flex: 1; max-width: 420px; margin-left: auto; }
+.header-search { flex: 1; min-width: 0; max-width: 420px; margin-left: auto; }
+.header-search .searchbox-form input { min-width: 0; width: 100%; }
 .user-menu { position: relative; margin-left: auto; flex-shrink: 0; }
 .header-search + .user-menu { margin-left: 0; }
 .profile-button { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 13px; font-weight: 550; color: var(--ink-2); }
@@ -405,10 +406,10 @@
 .history-empty { padding: 36px 0 24px; text-align: center; color: var(--muted); }
 .history-empty p { margin: 0 0 4px; color: var(--ink-2); font-size: 14px; }
 /* ---------- Watch page v2: hero with price box + history ---------- */
-.detail-hero { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.1fr); gap: 40px; margin-bottom: 20px; align-items: start; }
-.detail-gallery { position: sticky; top: 84px; }
-.detail-hero .detail-photo { max-width: 560px; width: 100%; height: clamp(340px, 42vw, 540px); aspect-ratio: auto; margin: 0 auto; }
-@media (max-width: 1000px) { .detail-hero .detail-photo { max-width: 360px; margin: 0 auto; } }
+.detail-hero { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(0, 1.15fr); gap: clamp(24px, 3vw, 40px); margin-bottom: 20px; align-items: start; }
+.detail-gallery { position: sticky; top: 84px; min-width: 0; }
+.detail-info { min-width: 0; }
+.detail-hero .detail-photo { max-width: 460px; width: 100%; height: clamp(300px, 38vw, 460px); aspect-ratio: auto; margin: 0 auto; }
 .price-box { margin-top: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden; }
 .price-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; }
 .price-row + .price-row { border-top: 1px solid var(--line-2); }
@@ -416,6 +417,7 @@
 .price-row h3 { margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .price-row p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .price-value { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.detail-info .price-value, .detail-info .retail-actions { margin-left: auto; }
 .price-value > a { display: inline-flex; align-items: center; gap: 6px; }
 .price-value strong { display: inline-flex; align-items: center; gap: 8px; font-size: 26px; letter-spacing: -.6px; }
 .price-value strong.big { font-size: 34px; }
@@ -475,11 +477,20 @@
 .fee-panel { padding: 0; }
 .fee-panel .fee-card { margin: 0; border: 0; }
 @media (max-width: 1000px) {
-  .detail-hero { grid-template-columns: 1fr; }
-  .detail-gallery { position: static; }
+  .detail-info .price-row { flex-wrap: wrap; padding: 16px 18px; gap: 12px; }
+  .detail-info .retail-form { flex-wrap: wrap; }
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .risk-panel { grid-template-columns: 1fr; }
   .risk-checks { grid-column: 1; grid-row: auto; }
+}
+@media (max-width: 760px) {
+  .detail-hero { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .detail-gallery { position: static; }
+  .detail-hero .detail-photo { max-width: 320px; height: clamp(240px, 65vw, 320px); }
+}
+@media (min-width: 761px) and (max-width: 1000px) {
+  .detail-info .price-row:has(> .price-value) > div:first-child { flex: 1; min-width: 0; }
+  .detail-info .price-value { flex-shrink: 0; }
 }
 @media (max-width: 560px) { .metrics-grid { grid-template-columns: 1fr 1fr; } .metric strong { font-size: 20px; } .price-value strong.big { font-size: 26px; } .price-row { flex-wrap: wrap; } }
 /* Group post import */
@@ -569,10 +580,21 @@
 .spec-refs button:hover { text-decoration: underline; }
 .spec-refs button.current { color: var(--ink); font-weight: 600; cursor: default; text-decoration: none; }
 .specs-source { margin-top: 14px; display: inline-flex; }
+@media (min-width: 761px) and (max-width: 900px) {
+  .detail-head { flex-wrap: wrap; gap: 12px; }
+  .detail-head h1 { font-size: 30px; }
+  .detail-actions { gap: 6px; }
+  .detail-actions .primary, .detail-actions .secondary, .detail-actions .favorite-btn.labelled { padding-inline: 12px; }
+}
 @media (max-width: 760px) {
   .detail-head { flex-direction: column; align-items: flex-start; }
   .detail-head h1 { font-size: 32px; }
+  .detail-actions { flex-wrap: wrap; }
   .more-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .site-header-inner { gap: 8px; }
+  .logo > span { display: none; }
 }
 
 /* ---------- Variants (dial/bracelet) and card prices ---------- */
