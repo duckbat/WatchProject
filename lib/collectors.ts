@@ -159,7 +159,7 @@ export const WATCHUSEEK_FEED='https://www.watchuseek.com/forums/watches-private-
 const toriHeaders={'User-Agent':'WatchProject/1.0 (personal watch price tracker)','Accept':'text/html'};
 async function toriSearch(q:string,model:Model&{family?:string}){const url=new URL('https://www.tori.fi/recommerce/forsale/search');url.searchParams.set('q',q);return parseToriListings(await safeFetch(url.href,{headers:toriHeaders}),model);}
 /** Live, unsaved asking prices for the detail page: exact-reference matches plus clearly labelled similar listings. */
-export async function fetchLiveListings(model:Model&{family?:string},secrets:{EBAY_CLIENT_ID?:string;EBAY_CLIENT_SECRET?:string;EBAY_MARKETPLACE?:string;REDDIT_CLIENT_ID?:string;REDDIT_CLIENT_SECRET?:string},marketplace=secrets.EBAY_MARKETPLACE||'EBAY_DE',opts:{skipReddit?:string}={}){
+export async function fetchLiveListings(model:Model&{family?:string},secrets:{EBAY_CLIENT_ID?:string;EBAY_CLIENT_SECRET?:string;EBAY_MARKETPLACE?:string;EBAY_ENVIRONMENT?:string;EBAY_SANDBOX_CLIENT_ID?:string;EBAY_SANDBOX_CLIENT_SECRET?:string;REDDIT_CLIENT_ID?:string;REDDIT_CLIENT_SECRET?:string},marketplace=secrets.EBAY_MARKETPLACE||'EBAY_DE',opts:{skipReddit?:string}={}){
  const listings:LiveListing[]=[];const sources:SourceStatus[]=[];
  const add=(xs:LiveListing[])=>{for(const x of xs){const i=listings.findIndex(l=>l.url===x.url);if(i<0)listings.push(x);else if(x.match==='exact')listings[i]=x;}};
  const words=(model.name||'').split(/[\s/]+/).filter(Boolean);const line=words[0]&&/^\d{2}(mm)?$/i.test(words[1]||'')?`${words[0]} ${words[1]}`:(model.family||words[0]||'');
@@ -167,10 +167,15 @@ export async function fetchLiveListings(model:Model&{family?:string},secrets:{EB
   for(const query of [`${model.brand} ${baseReference(model.reference)}`,line?`${model.brand} ${line}`:''].filter(Boolean)){try{add(await toriSearch(query,model));}catch(e){errors.push(e instanceof Error?e.message:'Tori request failed');}}
   await addToriDates(listings);
   sources.push(errors.length&&listings.length===before?{id:'tori',name:'Tori.fi',status:'error',count:0,message:errors[0]}:{id:'tori',name:'Tori.fi',status:'ok',count:listings.length-before});}
- if(secrets.EBAY_CLIENT_ID&&secrets.EBAY_CLIENT_SECRET){try{const before=listings.length;const auth=JSON.parse(await safeFetch('https://api.ebay.com/identity/v1/oauth2/token',{method:'POST',headers:{Authorization:`Basic ${btoa(secrets.EBAY_CLIENT_ID+':'+secrets.EBAY_CLIENT_SECRET)}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'}));
-  const url=new URL('https://api.ebay.com/buy/browse/v1/item_summary/search');url.searchParams.set('q',`${model.brand} ${baseReference(model.reference)}`);url.searchParams.set('category_ids','31387');url.searchParams.set('limit','50');
-  add(parseEbayListings(JSON.parse(await safeFetch(url.href,{headers:{Authorization:`Bearer ${auth.access_token}`,'X-EBAY-C-MARKETPLACE-ID':marketplace}})),model));sources.push({id:'ebay',name:'eBay',status:'ok',count:listings.length-before});}
-  catch(e){const msg=e instanceof Error?e.message:'eBay request failed';sources.push({id:'ebay',name:'eBay',status:'error',count:0,message:/HTTP 401/.test(msg)?'eBay rejected the keys (invalid_client). A new production keyset stays disabled until the Marketplace Account Deletion step is done on developer.ebay.com; also check the Cert ID was copied in full.':msg});}}
+ const sandbox=secrets.EBAY_ENVIRONMENT==='sandbox';
+ const ebayId=sandbox?secrets.EBAY_SANDBOX_CLIENT_ID:secrets.EBAY_CLIENT_ID,ebaySecret=sandbox?secrets.EBAY_SANDBOX_CLIENT_SECRET:secrets.EBAY_CLIENT_SECRET,ebayHost=sandbox?'api.sandbox.ebay.com':'api.ebay.com';
+ if(ebayId&&ebaySecret){try{const before=listings.length;const auth=JSON.parse(await safeFetch(`https://${ebayHost}/identity/v1/oauth2/token`,{method:'POST',headers:{Authorization:`Basic ${btoa(ebayId+':'+ebaySecret)}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'}));
+  const url=new URL(`https://${ebayHost}/buy/browse/v1/item_summary/search`);url.searchParams.set('q',`${model.brand} ${baseReference(model.reference)}`);url.searchParams.set('category_ids','31387');url.searchParams.set('limit','50');
+  const found=parseEbayListings(JSON.parse(await safeFetch(url.href,{headers:{Authorization:`Bearer ${auth.access_token}`,'X-EBAY-C-MARKETPLACE-ID':marketplace}})),model);
+  // Sandbox listings are eBay's made-up test data: check the connection, never use them as prices.
+  if(sandbox)sources.push({id:'ebay',name:'eBay (sandbox)',status:'ok',count:0,message:`Sandbox connection works (${found.length} test listings, not used as prices). Set EBAY_ENVIRONMENT=production once the production keyset is enabled.`});
+  else{add(found);sources.push({id:'ebay',name:'eBay',status:'ok',count:listings.length-before});}}
+  catch(e){const msg=e instanceof Error?e.message:'eBay request failed';sources.push({id:'ebay',name:sandbox?'eBay (sandbox)':'eBay',status:'error',count:0,message:/HTTP 401/.test(msg)?`eBay rejected the ${sandbox?'sandbox':'production'} keys (invalid_client). A new production keyset stays disabled until the Marketplace Account Deletion step is done on developer.ebay.com; also check the Cert ID was copied in full.`:msg});}}
  else sources.push({id:'ebay',name:'eBay',status:'credentials_required',count:0,message:'Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET on the server to include eBay.'});
  const q=`${model.brand} ${baseReference(model.reference)}`;
  const redditSearch=`https://www.reddit.com/r/Watchexchange/search/?${new URLSearchParams({q,restrict_sr:'1',sort:'new'})}`;

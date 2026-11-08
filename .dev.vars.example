@@ -6,6 +6,10 @@ EBAY_CLIENT_ID=
 EBAY_CLIENT_SECRET=
 # Marketplace to search: EBAY_DE, EBAY_US, EBAY_GB, EBAY_FR, EBAY_IT or EBAY_ES
 EBAY_MARKETPLACE=EBAY_DE
+# production (default) or sandbox. Sandbox only checks the connection; its test listings are never used as prices.
+EBAY_ENVIRONMENT=production
+EBAY_SANDBOX_CLIENT_ID=
+EBAY_SANDBOX_CLIENT_SECRET=
 
 # Optional: Reddit API app. Without it, r/Watchexchange is searched via Reddit's public RSS feed.
 REDDIT_CLIENT_ID=
