@@ -8,7 +8,7 @@ import { exactMatch } from '../lib/collectors/matching/classify';
 import { classifyIdentity } from '../lib/collectors/matching/structured';
 import { expectedDial, namesDial } from '../lib/collectors/matching/dial';
 import { listingKind } from '../lib/market-archive/listings';
-import PriceScatter, { type ChartPoint } from './price-scatter';
+import PriceScatter, { sourceColors, type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
 import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
 import { computeMetrics, dedupeCrossPosts, withoutOutliers, type MetricPrice } from '../lib/metrics';
@@ -262,7 +262,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   );
   const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
-  const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length }));
+  // Most prices first; the order fixes each source's colour, shared by its button and its dots.
+  const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  const chartColors = sourceColors(sourcesInChart.map((s) => s.name));
   const chartPoints = points.filter((p) => !hiddenSources.has(p.source) && inBand(p.price));
   const hiddenOutliers = points.length - points.filter((p) => inBand(p.price)).length;
   const fmtDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -538,10 +540,13 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <>
             <div className="chart-controls">
               {sourcesInChart.length > 0 && (
-                <div className="source-toggle" role="group" aria-label="Sources">
+                <div className="source-toggle" role="group" aria-label="Show or hide sources (colours)">
+                  <span className="legend-label" aria-hidden>Source</span>
                   {sourcesInChart.map(({ name, n }) => (
-                    <button key={name} aria-pressed={!hiddenSources.has(name)} className={hiddenSources.has(name) ? '' : 'on'} onClick={() => setHiddenSources((h) => { const x = new Set(h); if (x.has(name)) x.delete(name); else x.add(name); return x; })}>
-                      {name} ({n})
+                    <button key={name} aria-pressed={!hiddenSources.has(name)} className={hiddenSources.has(name) ? 'off' : ''} onClick={() => setHiddenSources((h) => { const x = new Set(h); if (x.has(name)) x.delete(name); else x.add(name); return x; })}>
+                      <span className="dot" style={{ '--dot': chartColors[name] } as React.CSSProperties} />
+                      {name}
+                      <small>{n}</small>
                     </button>
                   ))}
                 </div>
@@ -551,7 +556,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             {showFilters && <FilterBar prefs={prefs} onPrefs={onPrefs} extended />}
             {chartPoints.length ? (
               <>
-                <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} />
+                <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} colors={chartColors} />
                 {hiddenOutliers > 0 && <p className="fine">{hiddenOutliers} far-off price{hiddenOutliers === 1 ? '' : 's'} hidden (also excluded from the market price).</p>}
               </>
             ) : (

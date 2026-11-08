@@ -6,13 +6,38 @@ import { money } from '../lib/market';
 export type ChartKind = 'live' | 'similar' | 'asking' | 'confirmed-sale' | 'sold-asking';
 export type ChartPoint = { id: string; date: string; price: number; kind: ChartKind; title: string; url?: string; source: string; country: string; undated?: boolean };
 
-export const kindStyle: Record<ChartKind, { label: string; color: string; hollow?: boolean }> = {
-  live: { label: 'Asking', color: 'var(--c-asking)' },
-  asking: { label: 'Asking (last observed)', color: '#7ea6e6' },
-  'confirmed-sale': { label: 'Reported sale', color: 'var(--c-sold)' },
-  'sold-asking': { label: 'Sold (last ask)', color: '#f2a07b' },
-  similar: { label: 'Similar / unverified', color: 'var(--c-similar)', hollow: true },
+/** The dot's colour is its source; its shape says what kind of price it is. */
+export const kindStyle: Record<ChartKind, { label: string; shape: 'circle' | 'diamond'; hollow?: boolean; faded?: boolean }> = {
+  live: { label: 'Asking', shape: 'circle' },
+  asking: { label: 'Asking (last observed)', shape: 'circle', faded: true },
+  'confirmed-sale': { label: 'Reported sale', shape: 'diamond' },
+  'sold-asking': { label: 'Sold (last ask)', shape: 'diamond', hollow: true },
+  similar: { label: 'Similar / unverified', shape: 'circle', hollow: true },
 };
+
+/** Distinct source colours, assigned by how many prices each source has (most first). */
+export const SOURCE_PALETTE = ['#3f6fb0', '#d0772f', '#2f7d57', '#7b5ea7', '#c0392b', '#c9a227', '#2a9d9f', '#c25b8a', '#6b7a2f', '#8a5a3c', '#4a5560', '#e07b5f'];
+export const sourceColors = (names: string[]) => Object.fromEntries(names.map((n, i) => [n, SOURCE_PALETTE[i % SOURCE_PALETTE.length]]));
+
+/** One chart mark: a circle or diamond, filled or outlined, in the source's colour. */
+function Mark({ kind, color, cx, cy, r }: { kind: ChartKind; color: string; cx: number; cy: number; r: number }) {
+  const s = kindStyle[kind];
+  const paint = { fill: s.hollow ? 'var(--surface)' : color, stroke: s.hollow ? color : 'var(--surface)', strokeWidth: s.hollow ? 2 : 1.5, opacity: s.faded ? 0.5 : 1 };
+  if (s.shape === 'diamond') {
+    const d = r * 1.25;
+    return <polygon points={`${cx},${cy - d} ${cx + d},${cy} ${cx},${cy + d} ${cx - d},${cy}`} {...paint} />;
+  }
+  return <circle cx={cx} cy={cy} r={r} {...paint} />;
+}
+
+/** The same mark at legend size, neutral by default (shapes explain the price type; source buttons explain colours). */
+export function KindIcon({ kind, color = 'var(--ink-2)' }: { kind: ChartKind; color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+      <Mark kind={kind} color={color} cx={7} cy={7} r={5} />
+    </svg>
+  );
+}
 
 const W = 900, H = 330, L = 74, R = 18, T = 18, B = 36;
 const DAY = 86_400_000;
@@ -32,7 +57,8 @@ function niceTicks(min: number, max: number, count = 5) {
   return ticks;
 }
 
-export default function PriceScatter({ points, currency, period, marketPrice }: { points: ChartPoint[]; currency: string; period: string; marketPrice: number | null }) {
+export default function PriceScatter({ points, currency, period, marketPrice, colors = {} }: { points: ChartPoint[]; currency: string; period: string; marketPrice: number | null; colors?: Record<string, string> }) {
+  const colorOf = (p: ChartPoint) => colors[p.source] || 'var(--c-asking)';
   const [hidden, setHidden] = useState<Set<ChartKind>>(new Set());
   const [hover, setHover] = useState<ChartPoint | null>(null);
   const kinds = (Object.keys(kindStyle) as ChartKind[]).filter((k) => points.some((p) => p.kind === k));
@@ -79,10 +105,11 @@ export default function PriceScatter({ points, currency, period, marketPrice }: 
 
   return (
     <div className="scatter" onMouseLeave={() => setHover(null)}>
-      <div className="scatter-legend" role="group" aria-label="Show or hide price types">
+      <div className="scatter-legend" role="group" aria-label="Show or hide price types (shapes)">
+        <span className="legend-label" aria-hidden>Type</span>
         {kinds.map((k) => (
           <button key={k} className={hidden.has(k) ? 'off' : ''} aria-pressed={!hidden.has(k)} onClick={() => setHidden((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; })}>
-            <span className={`dot${kindStyle[k].hollow ? ' hollow' : ''}`} style={{ '--dot': kindStyle[k].color } as React.CSSProperties} />
+            <KindIcon kind={k} />
             {kindStyle[k].label}
             <small>{points.filter((p) => p.kind === k).length}</small>
           </button>
@@ -114,17 +141,7 @@ export default function PriceScatter({ points, currency, period, marketPrice }: 
             </g>
           )}
           {placed.map(({ p, cx, cy }) => {
-            const s = kindStyle[p.kind];
-            const dot = (
-              <circle
-                cx={cx}
-                cy={cy}
-                r={hover?.id === p.id ? 8 : p.kind === 'similar' ? 5 : 6}
-                fill={s.hollow ? 'var(--surface)' : s.color}
-                stroke={s.hollow ? s.color : 'var(--surface)'}
-                strokeWidth={s.hollow ? 2 : 1.5}
-              />
-            );
+            const dot = <Mark kind={p.kind} color={colorOf(p)} cx={cx} cy={cy} r={hover?.id === p.id ? 8 : p.kind === 'similar' ? 5 : 6} />;
             const label = `${p.title}: ${money(p.price, currency)} · ${p.source} · ${p.date}`;
             return p.url ? (
               <a key={p.id} href={p.url} target="_blank" rel="noreferrer" aria-label={`${label}. Open listing`} onMouseEnter={() => setHover(p)} onFocus={() => setHover(p)} className="pt">
@@ -144,10 +161,10 @@ export default function PriceScatter({ points, currency, period, marketPrice }: 
             className={`scatter-tip${hovered.cx > W * 0.62 ? ' left' : ''}`}
             style={{ left: `${(hovered.cx / W) * 100}%`, top: `${(hovered.cy / H) * 100}%` }}
           >
-            <span className="tip-kind" style={{ color: kindStyle[hovered.p.kind].color }}>{kindStyle[hovered.p.kind].label}</span>
+            <span className="tip-kind" style={{ color: colorOf(hovered.p) }}><KindIcon kind={hovered.p.kind} color={colorOf(hovered.p)} /> {hovered.p.source} · {kindStyle[hovered.p.kind].label}</span>
             <strong>{money(hovered.p.price, currency)}</strong>
             <p>{hovered.p.title}</p>
-            <small>{hovered.p.source} · {hovered.p.country} · {hovered.p.undated ? 'date unknown' : `${hovered.p.kind === 'confirmed-sale' ? 'auction ended' : 'observed / listed'} ${hovered.p.date}`}</small>
+            <small>{hovered.p.country} · {hovered.p.undated ? 'date unknown' : `${hovered.p.kind === 'confirmed-sale' ? 'auction ended' : 'observed / listed'} ${hovered.p.date}`}</small>
             {hovered.p.url && (
               <a href={hovered.p.url} target="_blank" rel="noreferrer">
                 Go to listing <ArrowUpRight size={13} />
