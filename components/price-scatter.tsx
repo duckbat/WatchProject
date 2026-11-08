@@ -11,7 +11,7 @@ export const kindStyle: Record<ChartKind, { label: string; color: string; hollow
   asking: { label: 'Asking (last observed)', color: '#7ea6e6' },
   'confirmed-sale': { label: 'Reported sale', color: 'var(--c-sold)' },
   'sold-asking': { label: 'Sold (last ask)', color: '#f2a07b' },
-  similar: { label: 'Similar models', color: 'var(--c-similar)', hollow: true },
+  similar: { label: 'Similar / unverified', color: 'var(--c-similar)', hollow: true },
 };
 
 const W = 900, H = 330, L = 74, R = 18, T = 18, B = 36;

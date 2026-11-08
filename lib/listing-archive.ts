@@ -1,6 +1,11 @@
-import type { LiveListing } from './collectors';
+import { exactMatch, type LiveListing } from './collectors';
+import type { Model } from './market';
 
 export type ArchivedListing = LiveListing & { archived?: boolean; firstSeenAt?: string; lastSeenAt?: string };
+
+export function reclassifyListings(listings: ArchivedListing[], model: Model): ArchivedListing[] {
+  return listings.map((l) => ({ ...l, match: exactMatch(l.title, model) ? 'exact' : 'similar' }));
+}
 
 export function listingKind(l: { match: 'exact' | 'similar'; status: string; archived?: boolean }): 'similar' | 'confirmed-sale' | 'sold-asking' | 'asking' | 'live' {
   return l.match === 'similar' ? 'similar' : l.status === 'confirmed-sale' ? 'confirmed-sale' : l.status === 'sold-asking' ? 'sold-asking' : l.archived ? 'asking' : 'live';

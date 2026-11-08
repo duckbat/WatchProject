@@ -127,7 +127,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const similar = listings.filter((l) => l.match === 'similar');
   const exactIn = exact.filter(liveIn);
   const similarIn = similar.filter(liveIn);
-  const similarPrice = summarize(similarIn.map((l) => l.price), prefs.method);
   // Market price: asking AND sold prices for this exact reference (independent of the price-type chart filter).
   const inScope = (o: { currency: string; country: string; condition: string; sellerType: string }) =>
     o.currency === prefs.currency && inRegion(o.country, prefs.region) && (prefs.condition === 'all' || o.condition === prefs.condition) && (prefs.seller === 'all' || o.sellerType === prefs.seller);
@@ -165,7 +164,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
 
   const points: ChartPoint[] = [
     ...savedShown.filter((e) => !(e.data.observedAt === today() && exactIn.some((l) => l.url === e.data.url))).map((e) => ({ id: e.id, date: e.data.observedAt, price: e.data.price, kind: e.data.status as ChartPoint['kind'], title: ((e.data as any).title || `${model.brand} ${model.reference}`) + ((e.data as any).originalCurrency ? ` (converted from ${money((e.data as any).originalPrice, (e.data as any).originalCurrency)})` : ''), url: e.data.url || undefined, source: sourceName(e.data.sourceId), country: countries[e.data.country] || e.data.country })),
-    ...[...exactIn, ...similarIn].map((l) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt && !l.archived, price: l.price, kind: listingKind(l), title: l.title + (l.originalCurrency ? ` (converted from ${money(l.originalPrice!, l.originalCurrency)})` : ''), url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
+    ...[...exactIn, ...(showSimilar ? similarIn : [])].map((l) => ({ id: `live-${l.url}`, date: l.listedAt || l.observedAt, undated: !l.listedAt && !l.archived, price: l.price, kind: listingKind(l), title: l.title + (l.originalCurrency ? ` (converted from ${money(l.originalPrice!, l.originalCurrency)})` : ''), url: l.url, source: sourceName(l.sourceId), country: countries[l.country] || l.country })),
   ];
 
   const regional = regions.filter(([r]) => r !== 'Global').map(([r, name]) => {
@@ -217,6 +216,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <div className="listing-body">
           <span className="listing-source">{sourceName(l.sourceId)} · {countries[l.country] || l.country}{l.condition !== 'unknown' ? ` · ${l.condition === 'new' ? 'New' : 'Pre-owned'}` : ''}</span>
           <a className="listing-title" href={l.url} target="_blank" rel="noreferrer">{l.title}</a>
+          {l.match === 'similar' && <span className="listing-source">Not an exact variant match · excluded from market price</span>}
           <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}<span className={`tag${l.status !== 'asking' ? ' sold-tag' : ''}`}>{l.status === 'confirmed-sale' ? 'Reported sale' : l.status === 'sold-asking' ? 'Sold · last ask' : l.archived ? 'Asking · last observed' : 'Asking'}</span></strong>
           {l.archived && l.lastSeenAt && <span className="listing-source">Last seen {fmtDate(l.lastSeenAt.slice(0, 10))} · availability not reverified</span>}
           {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
@@ -304,7 +304,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             <div className="price-row market">
               <div>
                 <h3>Market price <span className="info" title="Median (or average) of asking and sold prices for this exact reference in the selected currency, region and time range: live listings, forum posts and your saved prices." role="img" aria-label="About market price"><Info size={13} /></span></h3>
-                <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : similarPrice !== null ? `No exact listing now · similar models ${money(similarPrice, prefs.currency)}` : 'No exact-reference listings found'}</p>
+                <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : 'No complete-reference matches found'}</p>
               </div>
               <div className="price-value">
                 <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
@@ -443,14 +443,15 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 </div>
               )}
               <FilterBar prefs={prefs} onPrefs={onPrefs} extended />
+              {similarIn.length > 0 && <button className="text-btn" aria-pressed={showSimilar} onClick={() => setShowSimilar((v) => !v)}>{showSimilar ? 'Hide' : 'Show'} similar / unverified variants ({similarIn.length})</button>}
             </div>
             {chartPoints.length ? (
-              <><PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} /><p className="fine">Matches use base reference {baseReference(model.reference)}; dial and bracelet variants may differ. Auction results are reported sale amounts. Sold · last ask is an advertised price, not the negotiated sale amount. Last-observed asking prices do not confirm current availability.</p></>
+              <><PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} /><p className="fine">Automatic prices require the complete reference {model.reference}, including any variant suffix. Similar and unverified variants are optional context and never affect the market price. Sold · last ask is an advertised price, not the negotiated sale amount.</p></>
             ) : (
               <div className="chart-empty">
                 <div className="empty-chart-lines" />
                 <h3>{liveState === 'loading' ? 'Loading prices…' : 'No prices for these filters yet'}</h3>
-                <p>{liveState === 'loading' ? 'Checking live marketplaces.' : 'Try another currency or region, or record a price you have seen.'}</p>
+                <p>{liveState === 'loading' ? 'Checking live marketplaces.' : `Listings must confirm the complete reference ${model.reference}. You can view similar / unverified variants separately or record a verified price.`}</p>
               </div>
             )}
           </>
@@ -493,9 +494,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         {similarIn.length > 0 && (
           <div className="similar-block">
             <button className="text-btn" aria-expanded={showSimilar} onClick={() => setShowSimilar((v) => !v)}>
-              {showSimilar ? 'Hide' : 'Show'} {similarIn.length} similar listings <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
+              {showSimilar ? 'Hide' : 'Show'} {similarIn.length} similar / unverified listings <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
             </button>
-            <p className="fine">Same model line, but the title does not confirm this reference. They are not used for the market price.</p>
+            <p className="fine">These may have a different dial, bracelet or model reference, or omit the variant suffix. They are hidden from the graph by default and never used for the market price.</p>
             {showSimilar && <div className="listing-grid">{similarIn.map((l) => <ListingCard key={l.url} l={l} />)}</div>}
           </div>
         )}

@@ -32,7 +32,7 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 | Source | Current support |
 | --- | --- |
 | Phillips | Automatic public auction results: verifies brand/reference on lot pages, imports reported sale amounts and auction end dates. Up to eight sold lots from the first search page. |
-| Tori.fi | On-demand collection of public asking prices, with exact brand/reference matching and review before saving. |
+| Tori.fi | On-demand collection of public asking prices, with complete brand/reference matching, preserving dial/bracelet variant suffixes and review before saving. |
 | eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
 | Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; save listings with the **Save to WatchLedger** button or record them manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
 | Reddit r/Watchexchange | Live search of [WTS] posts through Reddit's public RSS feed (no keys); posts whose title states a price are plotted on their post date. Optional API keys add post-body prices. |
@@ -191,3 +191,5 @@ The portable build runs Vinext directly without a host `timeout` command. The ma
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+
+Automatic exact matches require the complete catalog reference, including a variant suffix such as `126200-0001`. Base-reference-only results and conflicting explicit dial descriptions are classified as similar/unverified, excluded from market prices and hidden from the graph unless enabled. Older automatic archives are reclassified on read; observations are retained.

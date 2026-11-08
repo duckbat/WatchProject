@@ -4,7 +4,7 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
 
 | Source | Setup | What you get |
 | --- | --- | --- |
-| Phillips | None | Public search + lot pages. Only published Sold For amounts with a verified brand/reference and auction end date become reported sales. Estimates, current bids and login-only prices are excluded. |
+| Phillips | None | Public search + lot pages. Only published Sold For amounts with a matching brand/base reference and auction end date become reported sales. A complete variant reference is additionally required for an exact match. Estimates, current bids and login-only prices are excluded. |
 | Tori.fi | None | Live asking prices (Finland), searched on every watch page. |
 | r/Watchexchange | None | Reddit's public RSS search, available only until its announced retirement on November 13, 2026. `[WTS]`/`[WTT]` posts from the last year whose **title** states a price, plotted on their post date. Reddit rate-limits this feed; checks are spaced at least one minute apart and observations are retained in D1 when a later request fails. |
 | r/Watchexchange (API) | Optional `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | Also reads prices from the post body and searches the model line. New public API requests closed October 31, 2026; remaining public API access is scheduled to end March 2027. Approved access is required. |
@@ -54,3 +54,9 @@ Opening a catalog watch collects listings and saves a shared public-data archive
 `POST /api/market/refresh` refreshes one previously viewed public catalog reference due after six hours, oldest first. It returns `refreshed` and `remaining`; a scheduled run can call it repeatedly. This shared updater relies on the confirmed owner-only Sites gateway and the platform's service credential. It never reads personal collection records or accepts arbitrary URLs. Preserve the private audience when using this endpoint. Routine updates do not require a deployment.
 
 Phillips coverage is the first search page, at most eight sold lot details per lookup. Amounts are the auction house's reported totals, not normalized hammer prices or seller proceeds. Public availability does not itself establish redistribution rights. Chrono24 remains blocked and is not represented as an automatic data source.
+
+## Variant matching
+
+Discovery searches may use the base reference, but automatic exact matches must contain the full catalog reference. `126200` does not confirm `126200-0001`; a different suffix does not match. Rolex-style `M126200-0001` and reference punctuation are normalized. Explicit conflicting dial colors are rejected when the catalog has one recognizable dial color; case and strap colors are not treated as dial evidence. Missing dial details are not inferred from photos.
+
+Similar models and unverified variants stay outside market-price calculations and are hidden from the main graph by default. The detail view can show them explicitly for context. Previously collected archives use these rules immediately when read; manually assigned observations keep their selected model.

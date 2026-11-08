@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../../../db';
 import { records } from '../../../../db/schema';
 import { findCatalogModel } from '../../../../lib/catalog';
-import { MARKET_OWNER, watchMarket } from '../../../../lib/watch-market';
+import { currentArchiveMatches, MARKET_OWNER, watchMarket } from '../../../../lib/watch-market';
 
 // The owner-only Sites gateway authenticates service requests. This updates public catalog data only.
 export async function POST(req: Request) {
@@ -29,5 +29,5 @@ export async function GET(req: Request) {
   const modelId = new URL(req.url).searchParams.get('modelId') || '';
   if (modelId.length > 160 || !findCatalogModel(modelId)) return Response.json({ error: 'Choose a public catalog reference.' }, { status: 400 });
   const row = await getDb().select().from(records).where(and(eq(records.owner, MARKET_OWNER), eq(records.id, `market:${MARKET_OWNER}:${modelId}`))).get();
-  return row ? Response.json(JSON.parse(row.payload), { headers: { 'Cache-Control': 'no-store' } }) : Response.json({ error: 'Reference has not been collected yet.' }, { status: 404 });
+  return row ? Response.json(currentArchiveMatches(JSON.parse(row.payload), findCatalogModel(modelId)!), { headers: { 'Cache-Control': 'no-store' } }) : Response.json({ error: 'Reference has not been collected yet.' }, { status: 404 });
 }

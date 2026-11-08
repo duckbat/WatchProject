@@ -5,14 +5,32 @@ export type Candidate=z.infer<typeof collectedPrice>;
 export class CollectorError extends Error { code:string; constructor(code:string,message:string){super(message);this.code=code;} }
 const compact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 const excluded=/\b(strap|bracelet|bezel|dial only|parts|replica|homage|ranneke|varaosat|box only|laatikko)\b/i;
-// Catalog references often carry a dial/bracelet variant suffix (126200-0001) that sellers omit.
+// Use the base reference for discovery only; its suffix identifies dial/bracelet variants.
 export function baseReference(reference:string){const ref=reference.trim();const m=ref.match(/^(.{4,}?)-\d{3,4}$/);return m?m[1]:ref;}
 function titleTokens(title:string){const out=new Set<string>();for(const t of title.toLowerCase().match(/[a-z0-9]+(?:[.\-/][a-z0-9]+)*/g)||[]){out.add(compact(t));const noRef=t.replace(/^ref(?:erence)?\.?/,'');out.add(compact(noRef));}return out;}
-export function exactMatch(title:string, model:Pick<Model,'brand'|'reference'>){
- const tokens=titleTokens(title);const refs=new Set([compact(model.reference),compact(baseReference(model.reference))].filter(r=>r.length>=4));
- return compact(title).includes(compact(model.brand)) && [...refs].some(r=>tokens.has(r)) && !excluded.test(title);
+const dialColors='black|white|blue|green|silver|grey|gray|champagne|brown|pink|purple|red|orange|yellow|salmon|turquoise|beige|ivory';
+// shortcut: recognized dial colors only; use structured dial metadata when sources expose more detail.
+function conflictingDial(text:string,name=''){
+ // Only compare explicit dial descriptions; a silver case or blue strap is not evidence of dial color.
+ const expected=new Set<string>();
+ for(const part of name.split('/').slice(1)){
+  if(/\b(gold|steel|case|bezel|bracelet|leather|rubber|strap|ceramic|titanium)\b/i.test(part))continue;
+  const color=part.trim().match(new RegExp(`^(${dialColors})\\b`,'i'))?.[1];
+  if(color)expected.add(color.toLowerCase().replace('gray','grey'));
+ }
+ if(expected.size!==1)return false;
+ const before=new RegExp(`\\b(${dialColors})(?:[ -]+(?:sunburst|sunray|fluted|motif|palm|roman|diamond)){0,3}\\s+(?:dial|taulu)\\b`,'gi');
+ const after=new RegExp(`\\b(?:dial|taulu)\\s*[:=-]\\s*(${dialColors})\\b`,'gi');
+ const observed=[...text.matchAll(before),...text.matchAll(after)].map(m=>m[1].toLowerCase().replace('gray','grey'));
+ return observed.some(color=>!expected.has(color));
 }
-/** Same brand and model line (e.g. "Datejust 36") but no confirmed reference. Never used for prices. */
+export function exactMatch(title:string, model:Pick<Model,'brand'|'reference'>&Partial<Pick<Model,'name'>>,details=''){
+ const reference=compact(model.reference),text=`${title}\n${details}`;
+ const tokens=titleTokens(text);
+ const found=tokens.has(reference)||(/^(rolex|tudor)$/i.test(model.brand)&&tokens.has(`m${reference}`));
+ return reference.length>=4 && compact(text).includes(compact(model.brand)) && found && !excluded.test(title) && !conflictingDial(text,model.name);
+}
+/** Same brand and model line, without confirmation of the complete variant reference. Never used for prices. */
 export function similarMatch(title:string, model:Pick<Model,'brand'|'name'>&{family?:string}){
  const t=title.toLowerCase();if(!compact(t).includes(compact(model.brand))||excluded.test(title))return false;
  const words=(model.name||'').toLowerCase().split(/[\s/]+/).filter(Boolean);const line=words[0]&&/^\d{2}(mm)?$/.test(words[1]||'')?[words[0],words[1].replace('mm','')]:[(model.family||words[0]||'').toLowerCase()];
@@ -59,8 +77,7 @@ export function parseRedditListings(body:any,model:Model&{family?:string}):LiveL
  for(const child of (body?.data?.children||[]).slice(0,100)){
   const p=child?.data;if(!p||typeof p.title!=='string')continue;
   if(!/\[\s*wts|\[\s*wtt/i.test(p.title))continue;
-  const text=`${p.title}\n${typeof p.selftext==='string'?p.selftext.slice(0,3000):''}`;
-  const match=exactMatch(p.title,model)||exactMatch(text,model)?'exact':similarMatch(p.title,model)?'similar':null;if(!match)continue;
+  const match=exactMatch(p.title,model,typeof p.selftext==='string'?p.selftext.slice(0,3000):'')?'exact':similarMatch(p.title,model)?'similar':null;if(!match)continue;
   const priced=extractPrice(p.title)||extractPrice(typeof p.selftext==='string'?p.selftext.slice(0,3000):'');if(!priced)continue;
   if(typeof p.permalink!=='string'||!/^\/r\/watchexchange\/comments\/[a-z0-9]+\//i.test(p.permalink))continue;
   const created=new Date(Number(p.created_utc)*1000);if(!Number.isFinite(+created))continue;
@@ -104,7 +121,7 @@ export function parseForumRss(xml:string,host='www.watchuseek.com'):ForumItem[]{
 export function matchForumItems(items:ForumItem[],model:Model&{family?:string},sourceId:string):LiveListing[]{
  const result:LiveListing[]=[];
  for(const it of items){
-  const match=exactMatch(it.title,model)||exactMatch(`${it.title} ${it.text}`,model)?'exact':similarMatch(it.title,model)?'similar':null;if(!match)continue;
+  const match=exactMatch(it.title,model,it.text)?'exact':similarMatch(it.title,model)?'similar':null;if(!match)continue;
   const priced=extractPrice(it.title)||extractPrice(it.text);if(!priced)continue;
   const sold=/\bsold\b/i.test(it.title);
   const c=collectedPrice.safeParse({modelId:model.id,sourceId,country:/\b(conus|usa|u\.s\.)\b/i.test(`${it.title} ${it.text}`)?'US':'UNKNOWN',currency:priced.currency,price:priced.price,status:sold?'sold-asking':'asking',observedAt:it.date,condition:/\b(new|unworn|bnib)\b/i.test(it.title)?'new':'unknown',sellerType:/\b(dealer|sponsor)\b/i.test(it.text)?'dealer':'private',contents:'unknown',url:it.url,title:it.title,collectedAt:new Date().toISOString()});
@@ -113,7 +130,7 @@ export function matchForumItems(items:ForumItem[],model:Model&{family?:string},s
 }
 /** Threads naming this exact reference whose feed excerpt has no price (shown as links only). */
 export function forumItemsNeedingPost(items:ForumItem[],model:Model):ForumItem[]{
- return items.filter(it=>(exactMatch(it.title,model)||exactMatch(`${it.title} ${it.text}`,model))&&!extractPrice(it.title)&&!extractPrice(it.text));
+ return items.filter(it=>exactMatch(it.title,model,it.text)&&!extractPrice(it.title)&&!extractPrice(it.text));
 }
 export async function safeFetch(url:string,init:RequestInit={},fetcher:typeof fetch=fetch){
  // Only fixed provider URLs reach this helper. User marketplace URLs are never fetched.

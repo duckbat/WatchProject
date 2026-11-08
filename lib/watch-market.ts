@@ -3,12 +3,17 @@ import { env } from 'cloudflare:workers';
 import { getDb } from '../db';
 import { records } from '../db/schema';
 import { fetchLiveListings, forumItemsNeedingPost, matchForumItems, parseForumRss, safeFetch, WATCHUSEEK_FEED, type ForumItem, type SourceStatus } from './collectors';
-import { mergeListings, type ArchivedListing } from './listing-archive';
+import { mergeListings, reclassifyListings, type ArchivedListing } from './listing-archive';
 import { collectPhillips } from './phillips';
 import type { Model } from './market';
 
 export const MARKET_OWNER = '__market__';
-export type MarketArchive = { modelId: string; fetchedAt: string; partial: boolean; listings: ArchivedListing[]; sources: SourceStatus[]; threads: { title: string; url: string; date: string; source: string }[]; note: string };
+export type MarketArchive = { modelId: string; matchingVersion?: number; fetchedAt: string; partial: boolean; listings: ArchivedListing[]; sources: SourceStatus[]; threads: { title: string; url: string; date: string; source: string }[]; note: string };
+const MATCHING_VERSION = 2;
+
+export function currentArchiveMatches(archive: MarketArchive, model: Model): MarketArchive {
+  return archive.matchingVersion === MATCHING_VERSION ? archive : { ...archive, matchingVersion: MATCHING_VERSION, listings: reclassifyListings(archive.listings, model) };
+}
 
 async function forumArchive() {
   const db = getDb();
@@ -29,7 +34,7 @@ async function forumArchive() {
 export async function watchMarket(model: Model, owner = MARKET_OWNER, refresh = false): Promise<MarketArchive> {
   const db = getDb(), id = `market:${owner}:${model.id}`;
   const previousRow = await db.select().from(records).where(eq(records.id, id)).get();
-  const previous: MarketArchive | undefined = previousRow ? JSON.parse(previousRow.payload) : undefined;
+  const previous = previousRow ? currentArchiveMatches(JSON.parse(previousRow.payload), model) : undefined;
   if (previous && !refresh && Date.now() - +new Date(previous.fetchedAt) < (previous.partial ? 120_000 : 1_200_000)) return previous;
   const lockId = `market-lock:${owner}:${model.id}`, lockPayload = JSON.stringify({ expiresAt: Date.now() + 120_000 });
   const lock = await db.insert(records).values({ id: lockId, owner, kind: 'market-lock', payload: lockPayload }).onConflictDoUpdate({ target: records.id, set: { payload: lockPayload }, setWhere: sql`json_extract(${records.payload}, '$.expiresAt') < ${Date.now()}` }).returning();
@@ -59,7 +64,7 @@ export async function watchMarket(model: Model, owner = MARKET_OWNER, refresh = 
       threads = forumItemsNeedingPost(items, model).map((it) => ({ title: it.title, url: it.url, date: it.date, source: 'WatchUSeek' }));
       sources.push({ id: 'watchuseek', name: 'WatchUSeek', count: matches.length, status: error ? 'error' : 'ok', message: error || `Matched ${items.length} archived sale threads.`, searchUrl: WATCHUSEEK_FEED.replace('/index.rss', '/') });
     } else sources.push({ id: 'watchuseek', name: 'WatchUSeek', status: 'error', count: 0, message: 'Forum check failed; retained observations are shown.' });
-    const body: MarketArchive = { modelId: model.id, fetchedAt: new Date().toISOString(), partial: sources.some((s) => s.status === 'error'), listings: mergeListings(previous?.listings || [], listings), sources, threads, note: 'Asking prices, sold-marked asking prices and reported auction sales. Missing listings retain their last observed status; disappearance never proves a sale.' };
+    const body: MarketArchive = { modelId: model.id, matchingVersion: MATCHING_VERSION, fetchedAt: new Date().toISOString(), partial: sources.some((s) => s.status === 'error'), listings: mergeListings(previous?.listings || [], listings), sources, threads, note: 'Only complete-reference matches enter the default graph and market price. Similar models and unverified variants are separate. Missing listings retain their last observed status; disappearance never proves a sale.' };
     await db.insert(records).values({ id, owner, kind: 'market-history', payload: JSON.stringify(body) }).onConflictDoUpdate({ target: records.id, set: { payload: JSON.stringify(body) } });
     return body;
   } finally { await db.delete(records).where(and(eq(records.id, lockId), eq(records.payload, lockPayload))); }

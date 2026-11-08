@@ -9,7 +9,7 @@ for (const name of ['market', 'collectors', 'phillips', 'listing-archive']) {
   await writeFile(`.sites-runtime/test-modules/${name}.mjs`, output);
 }
 const { phillipsResults, parsePhillipsSale } = await import('../.sites-runtime/test-modules/phillips.mjs');
-const { mergeListings, listingKind } = await import('../.sites-runtime/test-modules/listing-archive.mjs');
+const { mergeListings, listingKind, reclassifyListings } = await import('../.sites-runtime/test-modules/listing-archive.mjs');
 const model = { id: 'dj', brand: 'Rolex', reference: '126200-0001', name: 'Datejust 36' };
 const now = new Date('2026-11-08T12:00:00Z');
 // Reduced public markup from Phillips lot 231452, fetched November 8, 2026.
@@ -24,6 +24,8 @@ const sale = parsePhillipsSale(detail, results[0], model, now);
 assert.equal(sale.price, 82550);
 assert.equal(sale.currency, 'HKD');
 assert.equal(sale.status, 'confirmed-sale');
+assert.equal(sale.match, 'similar');
+assert.equal(parsePhillipsSale(detail.replace('126200', '126200-0001'), results[0], model, now).match, 'exact');
 assert.equal(sale.country, 'UNKNOWN'); // Auction venue is not the seller's location.
 assert.equal(parsePhillipsSale(detail.replace('126200', '1262000'), results[0], model, now), null);
 assert.equal(parsePhillipsSale(detail.replace('Rolex', 'Ellicott'), results[0], model, now), null);
@@ -33,7 +35,7 @@ assert.equal(phillipsResults(`<div id="search-page">${card.replace('class="sold"
 assert.equal(phillipsResults(`<div id="search-page">${card.replace('/detail/rolex/231452', '//evil.example/detail/1')}</div>`).length, 0);
 assert.throws(() => phillipsResults('<html>Challenge</html>'), /public search/);
 
-const asking = { ...sale, url: 'https://www.tori.fi/recommerce/forsale/item/1', status: 'asking', sourceId: 'tori' };
+const asking = { ...sale, match: 'exact', url: 'https://www.tori.fi/recommerce/forsale/item/1', status: 'asking', sourceId: 'tori' };
 const initial = mergeListings([], [asking, asking], now.toISOString());
 assert.equal(initial.length, 1);
 const retained = mergeListings(initial, [], '2026-11-09T12:00:00Z');
@@ -45,8 +47,16 @@ const sold = mergeListings(retained, [{ ...asking, status: 'sold-asking' }], '20
 assert.equal(sold.length, 1);
 assert.equal(sold[0].firstSeenAt, initial[0].firstSeenAt);
 assert.equal(listingKind(sold[0]), 'sold-asking');
-assert.equal(listingKind(sale), 'confirmed-sale');
+assert.equal(listingKind({ ...sale, match: 'exact' }), 'confirmed-sale');
 assert.equal(listingKind(retained[0]), 'asking');
 assert.equal(listingKind(initial[0]), 'live');
 assert.equal(listingKind({ ...sale, match: 'similar' }), 'similar');
 console.log('Auction/history checks passed: reported amounts, exact references, dates, estimates excluded, retained listings, status transitions and chart categories.');
+
+const old={...sale,match:'exact'};
+const rechecked=reclassifyListings([old,{...old,url:'https://www.phillips.com/detail/rolex/2',title:'Rolex 126200-0001 silver dial'}],{...model,name:'Datejust 36 / Silver / Jubilee'});
+assert.equal(rechecked[0].match,'similar');
+assert.equal(rechecked[0].price,old.price);
+assert.equal(rechecked[1].match,'exact');
+assert.equal(old.match,'exact');
+console.log('Legacy archives are reclassified without changing prices or deleting observations.');
