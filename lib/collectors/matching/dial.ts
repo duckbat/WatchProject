@@ -99,6 +99,18 @@ const fold = (s: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+function dialDescription(name: string) {
+  // Read the colour segment, so a fluted bezel cannot turn a plain dial into a motif dial.
+  return name.split('/').slice(1).find((p) => new RegExp(`^\\s*(${dialColors})\\b`, 'i').test(p)) || '';
+}
+
+function patternedDial(name: string) {
+  const part = dialDescription(name);
+  return /\bpalm\b/i.test(part) ? 'palm' : /\bfluted\b/i.test(part) ? 'fluted' : null;
+}
+
+const flutedDial = /\bfluted(?:[ -]+motif)?(?:[ -]+diamond)?[ -]+(?:dial|taulu)\b|\bfluted[ -]+motif\b|\b(?:dial|taulu)\s*[:=-]\s*[a-z]+[ -]+fluted\b/i;
+
 /** Colors a text names outside strap/bezel/case wording, Nordic words translated ("sininen" → blue, "Wimbledon" → slate). */
 function namedDialColors(text: string) {
   const t = dialText(text)
@@ -119,7 +131,10 @@ export function namesDial(text: string, name = '') {
   const expected = expectedDial(name);
   if (expected.size !== 1) return false;
   const named = namedDialColors(text);
-  return named.length > 0 && named.every((c) => expected.has(c));
+  const pattern = patternedDial(name);
+  const details = fold(dialDescription(name));
+  const stylesStated = ['diamond', 'roman'].every((style) => !details.includes(style) || new RegExp(`\\b${style}s?\\b`, 'i').test(text));
+  return named.length > 0 && named.every((c) => expected.has(c)) && !titleDialConflict(text, name) && stylesStated && (!pattern || (pattern === 'palm' ? /\bpalm\b/i.test(text) : flutedDial.test(text)));
 }
 
 export function titleDialConflict(title: string, name = '') {
@@ -127,7 +142,9 @@ export function titleDialConflict(title: string, name = '') {
   if (name.includes('/')) {
     const n = fold(name),
       t = fold(title);
-    if (dialStyles.some((st) => new RegExp(`\\b${st}`).test(t) && !n.includes(st === 'wimbledon' ? 'slate' : st)))
+    const pattern = patternedDial(name);
+    if (flutedDial.test(t) && pattern !== 'fluted') return true;
+    if (dialStyles.some((st) => new RegExp(`\\b${st}`).test(t) && !n.includes(st === 'wimbledon' ? 'slate' : st) && !(st === 'motif' && pattern)))
       return true;
   }
   const expected = expectedDial(name);

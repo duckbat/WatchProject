@@ -32,6 +32,7 @@ export function exactMatch(
     found &&
     !partsListing(title) &&
     !statedReferenceConflict(title, model) &&
+    !titleDialConflict(title, model.name) &&
     !conflictingDial(text, model.name)
   );
 }

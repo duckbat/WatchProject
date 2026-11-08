@@ -34,7 +34,7 @@ export type MarketArchive = {
   note: string;
 };
 
-const MATCHING_VERSION = 6;
+const MATCHING_VERSION = 7;
 const COLLECTOR_VERSION = 2;
 
 /** A fresh archive is served for 20 minutes (2 when a source failed transiently). */

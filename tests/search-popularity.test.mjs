@@ -35,7 +35,7 @@ assert.deepEqual(top.map((m) => m.priced), [50, 36]);
 // Variants: starter duplicates are not listed; labels say what differs; dial colors come from the catalog name.
 assert.ok(variantsOf(sub.find((m) => m.reference === '124060')).every((m) => m.id.startsWith('ref-')));
 const v6 = dj.find((m) => m.reference === '126200-0006');
-assert.equal(variantLabel(v6, variantsOf(v6)), 'Domed · Blue · Oyster');
+assert.equal(variantLabel(v6, variantsOf(v6)), 'Blue · Oyster');
 assert.equal(dialOf(v6), 'blue');
 console.log(`Search checks passed: ${dj.length} Datejust 36 variants grouped, data-first order, exact reference on top, variant labels.`);
 
@@ -47,6 +47,33 @@ assert.ok(!namesDial('Rolex 126200 full set 2023', v6.name)); // dial not stated
 assert.ok(!namesDial('Rolex 126200 green dial', v6.name));
 assert.ok(!namesDial('Rolex 126200 black dial blue strap', v6.name));
 console.log('Dial checks passed.');
+
+// Popular Datejust families expose their complete catalog, including late suffixes and motif/diamond variants.
+for (const [ref, minimum] of [['126234',50], ['126200',21], ['126231',38], ['126233',39], ['126300',28], ['126334',36], ['126331',22], ['126333',22]]) {
+  const members = allModels.filter((m) => m.brand === 'Rolex' && m.reference.startsWith(ref + '-'));
+  assert.ok(members.length >= minimum, ref);
+  assert.equal(variantsOf(members[0]).length, members.length);
+  assert.equal(variantsOf(members.at(-1)).length, members.length);
+}
+const datejust = (ref) => allModels.find((m) => m.brand === 'Rolex' && m.reference === ref);
+const palm = datejust('126234-0047'), fluted = datejust('126234-0049'), plain = datejust('126234-0017');
+for (const suffix of ['0047','0048','0049','0050','0055','0056','0057','0058','0072']) assert.ok(variantsOf(plain).some((m) => m.reference === `126234-${suffix}`));
+assert.equal(variantLabel(palm, variantsOf(palm)), 'Green - Palm motif · Jubilee');
+assert.equal(variantLabel(fluted, variantsOf(fluted)), 'Blue fluted motif · Jubilee');
+assert.ok(!namesDial('Rolex 126234 green dial', palm.name));
+assert.ok(namesDial('Rolex 126234 green Palm motif dial', palm.name));
+assert.ok(!namesDial('Rolex 126234 blue dial fluted bezel', fluted.name));
+assert.ok(namesDial('Rolex 126234 blue fluted motif dial', fluted.name));
+assert.ok(!namesDial('Rolex 126234 blue fluted motif dial', plain.name));
+assert.ok(namesDial('Rolex 126234 blue dial fluted bezel', plain.name));
+assert.ok(!namesDial('Rolex 126234 green Palm motif dial', datejust('126234-0055').name));
+assert.ok(namesDial('Rolex 126234 green Palm motif diamond dial', datejust('126234-0055').name));
+assert.ok(!namesDial('Rolex 126234 blue fluted motif dial', datejust('126234-0057').name));
+assert.ok(namesDial('Rolex 126234 blue fluted motif diamond dial', datejust('126234-0057').name));
+const { classifyIdentity } = await lib('collectors/matching/structured');
+assert.equal(classifyIdentity('Rolex Datejust blue fluted motif dial', fluted, { brand:'Rolex',reference:'126234-0049',dial:'blue' }), 'exact');
+assert.equal(classifyIdentity('Rolex Datejust blue fluted motif dial', plain, { brand:'Rolex',reference:'126234-0017',dial:'blue' }), 'similar');
+console.log('Complete Datejust variant groups and Palm/fluted dial matching passed.');
 
 // Card prices: the all-dials 1-year median in EUR, cross-posts once, outliers out, old prices ignored.
 const { summarizeMarkets } = await lib('market-archive/summary');

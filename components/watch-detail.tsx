@@ -66,7 +66,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [showFilters, setShowFilters] = useState(false);
   const [specsOpen, setSpecsOpen] = useState(false);
   const [variants, setVariants] = useState<Model[]>([]);
-  const [allVariants, setAllVariants] = useState(false);
+  const [variantQuery, setVariantQuery] = useState('');
   const [newRegion, setNewRegion] = useState('Global');
 
   useEffect(() => {
@@ -157,6 +157,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   // dial's color; variants the catalog gives no single dial color keep "dial not stated" listings.
   const base = baseReference(model.reference);
   const hasVariants = variants.length > 1;
+  const variantTerms = variantQuery.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const shownVariants = variants.filter((v) => variantTerms.every((term) => `${v.label} ${v.reference}`.toLocaleLowerCase().includes(term)));
   const allDials = hasVariants && prefs.dialScope !== 'dial';
   const dialKnown = expectedDial(model.name).size === 1;
   const counts = (l: LiveListing) =>
@@ -343,24 +345,26 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             <div className="variant-picker">
               <p className="variant-head">
                 <span>{allDials ? `All dials · Ref. ${base}` : variants.find((v) => v.id === model.id)?.label || model.name}</span>
-                <small>{allDials ? 'Pick a dial for its own price' : `${variants.length} variants`}</small>
+                <small>{variantQuery ? `${shownVariants.length} of ${variants.length} variants` : `${variants.length} variants`}</small>
               </p>
-              <div className="variant-grid">
+              {variants.length > 11 && <input className="variant-search" type="search" aria-label="Search dials and bracelets" placeholder="Search dials, bracelets or reference…" value={variantQuery} onChange={(e) => setVariantQuery(e.target.value)} />}
+              <div className="variant-grid" role="group" aria-label="Dials and bracelets">
                 <button className={`all-dials${allDials ? ' active' : ''}`} aria-pressed={allDials} title={`Price across all ${variants.length} variants of Ref. ${base}`} onClick={() => onPrefs({ ...prefs, dialScope: 'all' })}>
                   <span className="variant-thumb"><span className="all-dials-icon">{variants.slice(0, 4).map((v) => <i key={v.id} style={{ background: (v.dial && dialSwatch[v.dial]) || '#bbb' }} />)}</span></span>
                   <span className="variant-name">All dials</span>
                 </button>
-                {(allVariants ? variants : variants.slice(0, 11)).map((v) => (
+                {shownVariants.map((v) => (
                   <button key={v.id} className={!allDials && v.id === model.id ? 'active' : ''} aria-pressed={!allDials && v.id === model.id} title={`${v.label} · Ref. ${v.reference}`} onClick={() => { if (prefs.dialScope !== 'dial') onPrefs({ ...prefs, dialScope: 'dial' }); if (v.id !== model.id) onNavigate({ view: 'watch', id: v.id }); }}>
                     <span className="variant-thumb"><WatchPhoto model={v} credit={false} iconSize={16} /></span>
                     <span className="variant-name">
                       {v.dial && <i className="swatch" style={{ background: dialSwatch[v.dial] || '#999' }} />}
                       {v.label}
                     </span>
+                    <small>{v.reference}</small>
                   </button>
                 ))}
               </div>
-              {variants.length > 11 && <button className="text-btn" onClick={() => setAllVariants((x) => !x)}>{allVariants ? 'Show fewer' : `Show all ${variants.length}`}</button>}
+              {shownVariants.length === 0 && <p className="muted">No matching dial or bracelet. Try a colour, Palm, fluted motif or reference.</p>}
             </div>
           ) : (
             family && <p className="detail-variant">{model.name}{model.size ? ` · ${model.size}` : ''}</p>

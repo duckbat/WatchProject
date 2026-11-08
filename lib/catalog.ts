@@ -37,13 +37,14 @@ export function variantsOf(model: Model): CatalogModel[] {
 
 /** What tells this variant apart from its siblings: "Blue · Oyster" out of "Datejust 36 Stainless Steel / Domed / Blue / Oyster". */
 export function variantLabel(model: CatalogModel, siblings: Model[]) {
-  const parts = (m: Model) => m.name.split('/').map((s) => s.trim()).filter(Boolean);
+  // Newer catalog names put the bezel in the case segment; normalize it before finding shared parts.
+  const parts = (m: Model) => m.name.split('/').flatMap((s, i) => (i === 0 ? s.replace(/\s+-\s+(Fluted|Domed|Smooth)\s*$/i, ' / $1') : s).split('/')).map((s) => s.trim()).filter(Boolean);
   const shared = siblings.length > 1 ? parts(siblings[0]).filter((p) => siblings.every((s) => parts(s).includes(p))) : [];
   let own = parts(model).filter((p) => !shared.includes(p));
   // The leading "Datejust 36 Stainless Steel" names the model, not the variant.
   const line = (model.family || model.name.split(/\s+/)[0]).toLocaleLowerCase();
   if (own.length > 1 && own[0].toLocaleLowerCase().startsWith(line)) own = own.slice(1);
-  return own.join(' · ') || model.reference;
+  return own.map((p) => p.replace(/\bpalm\b(?![ -]+motif)/gi, 'Palm motif').replace(/\s+-\s+fluted\b/i, ' fluted motif').replace(/\bMOP\b/gi, 'Mother of pearl')).join(' · ') || model.reference;
 }
 
 /** The dial color named in the catalog name, when there is exactly one. */
