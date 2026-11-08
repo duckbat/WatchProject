@@ -43,9 +43,12 @@ export function WatchCard({ model, price, owned, onOpen }: { model: Model; price
               <small>{price.count} saved prices</small>
             </>
           ) : (
-            <span className="see-price">
-              See market price <ArrowRight size={13} />
-            </span>
+            <>
+              <span className="see-price">
+                See market price <ArrowRight size={13} />
+              </span>
+              {model.priced ? <small>{model.priced} market prices</small> : null}
+            </>
           )}
         </div>
       </div>
@@ -61,9 +64,25 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
   const [data, setData] = useState<CatalogPage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [tracked, setTracked] = useState<Model[]>([]);
   const totalCatalog = brands.reduce((n, b) => n + b.count, 0);
 
   useEffect(() => setPage(1), [q, brand]);
+  // The watches with the most market prices found so far; the starter list shows until data exists.
+  useEffect(() => {
+    if (searching) return;
+    const controller = new AbortController();
+    fetch('/api/catalog?popular=1&limit=12', { signal: controller.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
+      .then((d) => {
+        if (!d?.items?.length) return;
+        setTracked(d.items);
+        onModels(d.items);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searching]);
   useEffect(() => {
     if (!searching) return;
     const controller = new AbortController();
@@ -191,11 +210,11 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
 
           <section className="home-section">
             <div className="home-section-head">
-              <h2>Popular references</h2>
-              <p>Frequently searched watches</p>
+              <h2>{tracked.length ? 'Most tracked watches' : 'Popular references'}</h2>
+              <p>{tracked.length ? 'Watches with the most market prices found' : 'Frequently searched watches'}</p>
             </div>
             <div className="tile-grid">
-              {catalog.map((m) => (
+              {(tracked.length ? tracked : catalog).map((m) => (
                 <WatchCard key={m.id} model={m} price={withCurrency(m.id)} owned={ownedIds.has(m.id)} onOpen={() => open(m)} />
               ))}
             </div>

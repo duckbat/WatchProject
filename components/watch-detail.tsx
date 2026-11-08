@@ -1,14 +1,15 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Pencil, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, ChevronRight, ChevronsRight, ExternalLink, Info, Plus, RefreshCw, Store, Trash2, Watch } from 'lucide-react';
 import { brandSiteFor, convertPrice, countries, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
-import { baseReference } from '../lib/collectors';
-import { listingKind } from '../lib/listing-archive';
+import { baseReference } from '../lib/collectors/matching/reference';
+import { listingKind } from '../lib/market-archive/listings';
 import PriceScatter, { type ChartPoint } from './price-scatter';
 import PriceHistory from './price-history';
 import { DaysChart, MetricsGrid, RiskPanel, VolumeChart } from './market-charts';
 import { computeMetrics, dedupeCrossPosts, withoutOutliers, type MetricPrice } from '../lib/metrics';
+import ModelSpecs from './model-specs';
 import WatchPhoto from './watch-photo';
 import { WatchCard } from './home-view';
 import { matchesPrefs, periodStart, periods, regions, statuses, today, type LiveListing, type LiveResult, type ModalKind, type Prefs, type Route } from './shared';
@@ -49,6 +50,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set());
   const [retailEdit, setRetailEdit] = useState(false);
   const [retailInput, setRetailInput] = useState('');
+  const [showSources, setShowSources] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [specsOpen, setSpecsOpen] = useState(false);
 
   useEffect(() => {
     if (model) return;
@@ -116,7 +120,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     return p === null ? [] : [{ ...e, data: { ...e.data, price: Math.round(p), currency: prefs.currency, originalPrice: e.data.currency === prefs.currency ? undefined : e.data.price, originalCurrency: e.data.currency === prefs.currency ? undefined : e.data.currency } }];
   });
   const savedShown = saved.filter((e) => matchesPrefs(e.data, prefs));
-  const savedPrice = summarize(latestListings(savedShown).map((e) => e.data.price), prefs.method);
   const listings: LiveListing[] = (live?.listings || []).flatMap((l) => {
     const p = toCur(l.price, l.currency);
     return p === null ? [] : [l.currency === prefs.currency ? l : { ...l, price: Math.round(p), currency: prefs.currency, originalPrice: l.price, originalCurrency: l.currency }];
@@ -153,7 +156,6 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const marketBasis = pool.length
     ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${pool.length} price${pool.length === 1 ? '' : 's'} (${pool.length - soldPool.length} asking · ${soldPool.length} sold) · ${rangeLabel}${nReference ? ` · ${nReference} for Ref. ${baseReference(model.reference)} without a stated dial/bracelet` : ''}${outliers.length ? ` · ${outliers.length} outlier${outliers.length === 1 ? '' : 's'} excluded` : ''}${nConverted ? ` · ${nConverted} converted to ${prefs.currency}` : ''}`
     : '';
-  const lows = exactIn.map((l) => l.price);
   const otherCurrencies = (live?.listings || []).filter((l) => l.match === 'exact' && !listings.some((x) => x.url === l.url)).map((l) => l.currency);
   const otherCurrency = otherCurrencies.length;
   const topOther = otherCurrencies.sort((a, b) => otherCurrencies.filter((x) => x === b).length - otherCurrencies.filter((x) => x === a).length)[0];
@@ -161,10 +163,13 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const fees = sellPrice ? feeBreakdown(sellPrice, 'chrono24') : null;
   const sortedExact = [...exactIn].sort((a, b) => (b.listedAt || b.observedAt).localeCompare(a.listedAt || a.observedAt));
   const liveUrls = new Set(exactIn.map((l) => l.url));
+  // Charts hide the same far-off prices the market price excludes, so one deposit or typo cannot flatten the scale.
+  const keptPrices = pool.map((p) => p.price);
+  const inBand = (price: number) => !outliers.length || !keptPrices.length || (price >= Math.min(...keptPrices) && price <= Math.max(...keptPrices));
   const historyPrices = [
     ...savedShown.filter((e) => !liveUrls.has(e.data.url)).map((e) => ({ date: e.data.observedAt, price: e.data.price })),
     ...exactIn.map((l) => ({ date: l.listedAt || l.observedAt, price: l.price })),
-  ].filter((p) => prefs.period === '36500' || p.date >= periodStart(prefs.period));
+  ].filter((p) => (prefs.period === '36500' || p.date >= periodStart(prefs.period)) && inBand(p.price));
   const savedToday = new Set(saved.filter((e) => e.data.observedAt === today()).map((e) => e.data.url));
   const owned = entries.filter((e) => e.kind === 'owned' && e.data.modelId === modelId);
 
@@ -192,7 +197,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const metrics = computeMetrics(metricPrices, { retail: retail?.data.price ?? null, market: marketPrice });
   const ages = metricPrices.filter((p) => p.active && p.listedAt).map((p) => Math.round((Date.now() - +new Date(p.listedAt + 'T12:00:00Z')) / 86_400_000));
   const sourcesInChart = [...new Set(points.map((p) => p.source))].map((name) => ({ name, n: points.filter((p) => p.source === name).length }));
-  const chartPoints = points.filter((p) => !hiddenSources.has(p.source));
+  const chartPoints = points.filter((p) => !hiddenSources.has(p.source) && inBand(p.price));
+  const hiddenOutliers = points.length - points.filter((p) => inBand(p.price)).length;
   const fmtDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   async function saveRetail() {
     const price = Number(retailInput);
@@ -243,15 +249,23 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     );
   };
 
+  const family = (model as Model & { family?: string }).family;
+  const okSources = live?.sources.filter((s) => s.status === 'ok').length ?? 0;
+  const chrono24Url = live?.sources.find((x) => x.id === 'chrono24')?.searchUrl;
+  const regionName = regions.find(([r]) => r === prefs.region)?.[1];
+
   return (
     <div className="detail">
-      <nav className="crumbs" aria-label="Breadcrumb">
-        <button onClick={() => onNavigate({ view: 'home' })}>Watches</button>
-        <ChevronRight size={13} />
-        <button onClick={() => onNavigate({ view: 'home', brand: model.brand })}>{model.brand}</button>
-        <ChevronRight size={13} />
-        <span aria-current="page">Ref. {model.reference}</span>
-      </nav>
+      <header className="detail-head">
+        <div>
+          <p className="detail-name">{model.brand} {family || model.name}</p>
+          <h1>Ref. {model.reference}</h1>
+        </div>
+        <div className="detail-actions">
+          <button className="primary" onClick={() => onModal('owned')}><Plus size={15} />Add to my watches</button>
+          <button className="secondary" onClick={() => onModal('observation')}>Record a price</button>
+        </div>
+      </header>
 
       <section className="detail-hero">
         <div className="detail-gallery">
@@ -259,33 +273,20 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             <WatchPhoto key={model.imageUrl || model.id} model={model} iconSize={70} />
             {owned.length > 0 && <span className="owned-tag">In my watches</span>}
           </div>
+          {family && <p className="detail-variant">{model.name}{model.size ? ` · ${model.size}` : ''}</p>}
         </div>
 
         <div className="detail-info">
-          <div className="detail-title">
-            <div>
-              <p className="eyebrow">{model.brand.toUpperCase()}</p>
-              <h1>{model.name}</h1>
-              <p className="detail-ref">
-                Ref. <strong>{model.reference}</strong>
-                {model.size && <> · {model.size}</>}
-                {(model as any).family && <> · {(model as any).family}</>}
-              </p>
-            </div>
-            <div className="detail-actions">
-              <button className="secondary" onClick={() => onModal('observation')}><Plus size={15} />Record a price</button>
-              <button className="primary" onClick={() => onModal('owned')}><Plus size={15} />Add to my watches</button>
-            </div>
-          </div>
-
           <div className="price-box">
             <div className="price-row">
               <div>
                 <h3>Retail price <span className="info" title="Price from an authorized retailer. Enter it yourself; it is used for value retention." role="img" aria-label="About retail price"><Info size={13} /></span></h3>
                 <p>
-                  {retail ? (
-                    retail.data.url ? <>From <a href={retail.data.url} target="_blank" rel="noreferrer">{retail.data.source || 'brand site'} <ArrowUpRight size={11} /></a> · as of {fmtDate(retail.data.asOf)}</> : <>Entered by you · as of {fmtDate(retail.data.asOf)}</>
-                  ) : retails.length ? `Saved in ${retails.map((r) => r.data.currency).join(', ')}; none in ${prefs.currency}` : 'Official price from the brand or an authorized dealer'}
+                  {retail?.data.url ? (
+                    <a href={retail.data.url} target="_blank" rel="noreferrer">{retail.data.source || 'Brand site'} <ArrowUpRight size={11} /></a>
+                  ) : (
+                    'Price from authorized retailer'
+                  )}
                 </p>
               </div>
               {retailEdit ? (
@@ -297,7 +298,9 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
               ) : retail ? (
                 <div className="price-value">
                   <strong><BadgeCheck size={20} className="retail-check" />{money(retail.data.price, retail.data.currency)}</strong>
-                  <button className="text-btn" onClick={() => { setRetailInput(String(retail.data.price)); setRetailEdit(true); }}><Pencil size={12} />Edit</button>
+                  <small>
+                    as of {fmtDate(retail.data.asOf)} · <button className="text-btn" onClick={() => { setRetailInput(String(retail.data.price)); setRetailEdit(true); }}>Edit</button>
+                  </small>
                 </div>
               ) : (
                 <div className="retail-actions">
@@ -310,32 +313,24 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
             <div className="price-row market">
               <div>
-                <h3>Market price <span className="info" title="Median (or average) of asking and sold prices for this reference in the selected currency, region and time range: live listings, forum posts and your saved prices. Listings that name only the base reference count when fewer than 3 complete-variant prices exist. Cross-posts are counted once and far-off prices are excluded." role="img" aria-label="About market price"><Info size={13} /></span></h3>
-                <p>{marketPrice !== null ? marketBasis : liveState === 'loading' ? 'Checking marketplaces…' : 'No reference matches found'}</p>
+                <h3>Market price <span className="info" title={marketBasis || 'Median of asking and sold prices for this reference in the selected currency, region and time range. Cross-posts count once; far-off prices are excluded.'} role="img" aria-label="How the market price is calculated"><Info size={13} /></span></h3>
+                <p>{liveState === 'loading' && marketPrice === null ? 'Checking marketplaces…' : marketPrice === null ? 'No prices found yet' : 'Estimated private sale price'}</p>
               </div>
               <div className="price-value">
                 <strong className="big">{liveState === 'loading' && marketPrice === null ? '…' : money(marketPrice, prefs.currency)}</strong>
-                <small>as of {fmtDate(today())}</small>
+                {marketPrice !== null && <small>as of {fmtDate(today())} · {pool.length} price{pool.length === 1 ? '' : 's'}</small>}
               </div>
             </div>
-            <div className="price-row sold">
-              <div>
-                <h3>Sold price <span className="info" title="Median of prices marked sold: sold forum posts (r/Watchexchange via WatchRecon, WatchUSeek), classifieds marked sold, auction results, and sales you record or import. A 'sold · last ask' is the asking price of a watch that sold." role="img" aria-label="About sold price"><Info size={13} /></span></h3>
-                <p>{soldPool.length ? `${prefs.method === 'median' ? 'Median' : 'Average'} of ${soldPool.length} sold · ${rangeLabel}` : 'No sold prices in this range yet'}</p>
+            {soldPrice !== null && (
+              <div className="price-foot">
+                <BadgeCheck size={16} />
+                <span>Sold for <strong>{money(soldPrice, prefs.currency)}</strong> ({prefs.method} of {soldPool.length} sale{soldPool.length === 1 ? '' : 's'}{lastSold ? `, last ${fmtDate(lastSold)}` : ''})</span>
               </div>
-              <div className="price-value">
-                <strong>{money(soldPrice, prefs.currency)}</strong>
-                {lastSold && <small>last sold {fmtDate(lastSold)}</small>}
-              </div>
-            </div>
-            {(metrics.dealerPrice !== null || fees) && (
+            )}
+            {metrics.dealerPrice !== null && (
               <div className="price-foot">
                 <Store size={16} />
-                {metrics.dealerPrice !== null ? (
-                  <span>Expect to pay <strong>{money(metrics.dealerPrice, prefs.currency)}</strong> when buying from a dealer</span>
-                ) : fees ? (
-                  <span>Selling on Chrono24 at this price, you would receive <strong>{money(fees.sellerNet, prefs.currency)}</strong> after the 6.95% fee</span>
-                ) : null}
+                <span>Expect to pay <strong>{money(metrics.dealerPrice, prefs.currency)}</strong> when buying from a dealer</span>
               </div>
             )}
           </div>
@@ -350,7 +345,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
 
           <div className="history-card">
             <div className="region-tabs" role="tablist" aria-label="Region">
-              {[['Global', 'Global'], ['EU', 'Europe'], ['US', 'America'], ['Asia', 'Asia'], ['FI', 'Finland']].map(([v, l]) => (
+              {[['Global', 'Global'], ['US', 'America'], ['EU', 'Europe'], ['Asia', 'Asia'], ['FI', 'Finland']].map(([v, l]) => (
                 <button key={v} role="tab" aria-selected={prefs.region === v} className={prefs.region === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, region: v })}>{l}</button>
               ))}
             </div>
@@ -361,46 +356,27 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
             </div>
             <PriceHistory prices={historyPrices} currency={prefs.currency} period={prefs.period} method={prefs.method} />
           </div>
-        </div>
-      </section>
 
-      <section className="live-strip">
-          <p className="live-status" role="status">
+          <div className="detail-status" role="status">
             <span className={`live-dot ${liveState}`} />
-            {liveState === 'loading'
-              ? 'Checking marketplaces for live listings…'
-              : liveState === 'error'
-                ? liveError
-                : (
-                  <>
-                    Checked {live?.sources.filter((s) => s.status === 'ok').map((s) => s.name).join(', ') || 'no sources'} · updated {live && ago(live.fetchedAt)}
-                    {convertedCount > 0 && fx && <> · other currencies converted at ECB rates of {fx.date}</>}
-                    {otherCurrency > 0 && (
-                      <>
-                        {' · '}
-                        <button className="text-btn" onClick={() => onPrefs({ ...prefs, currency: topOther })}>
-                          {otherCurrency} more in other currencies — show {topOther}
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-            {liveState !== 'loading' && signedIn && (
-              <button className="text-btn" onClick={() => loadLive(true)}>
-                <RefreshCw size={13} />Refresh
-              </button>
-            )}
-          </p>
-          {live && (
+            <span>
+              {liveState === 'loading'
+                ? 'Checking marketplaces…'
+                : liveState === 'error'
+                  ? liveError
+                  : <>Updated {live && ago(live.fetchedAt)} from {okSources} sources{otherCurrency > 0 && <> · <button className="text-btn" onClick={() => onPrefs({ ...prefs, currency: topOther })}>{otherCurrency} more in {topOther}</button></>}</>}
+            </span>
+            {live && <button className="text-btn" aria-expanded={showSources} onClick={() => setShowSources((v) => !v)}>Sources <ChevronDown size={13} className={showSources ? 'rot' : ''} /></button>}
+            {liveState !== 'loading' && signedIn && <button className="text-btn" onClick={() => loadLive(true)}><RefreshCw size={13} />Refresh</button>}
+          </div>
+          {showSources && live && (
             <div className="source-chips">
               {live.sources.map((src) => (
                 <span key={src.id} className={`source-chip ${src.status}`} title={src.message}>
                   <span className="dot" />
                   {src.name}
-                  <small>{src.status === 'ok' ? `${src.count} found` : src.status === 'blocked' ? 'blocked · manual' : src.status === 'credentials_required' ? 'not connected' : 'error'}</small>
-                  {src.searchUrl && src.status !== 'ok' && (
-                    <a href={src.searchUrl} target="_blank" rel="noreferrer">Search <ArrowUpRight size={12} /></a>
-                  )}
+                  <small>{src.status === 'ok' ? src.count : src.status === 'blocked' ? 'blocked' : src.status === 'credentials_required' ? 'not connected' : 'error'}</small>
+                  {src.searchUrl && src.status !== 'ok' && <a href={src.searchUrl} target="_blank" rel="noreferrer" aria-label={`Search ${src.name}`}><ArrowUpRight size={12} /></a>}
                 </span>
               ))}
               {groupSources.map((g) => {
@@ -409,28 +385,20 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                   <span key={g.id} className="source-chip blocked" title="Facebook has no API for groups. Search the group, then save posts with the Save to WatchLedger button.">
                     <span className="dot" />
                     {g.name}
-                    <small>save button</small>
-                    <a href={href} target="_blank" rel="noreferrer">Search group <ArrowUpRight size={12} /></a>
-                    <button className="chip-link" onClick={() => onNavigate({ view: 'import' })}>Import posts</button>
+                    <a href={href} target="_blank" rel="noreferrer" aria-label={`Search ${g.name}`}><ArrowUpRight size={12} /></a>
                   </span>
                 ) : null;
               })}
+              {convertedCount > 0 && fx && <p className="fine">Other currencies converted at ECB rates of {fx.date}.</p>}
             </div>
           )}
-
+        </div>
       </section>
 
       <section className="panel chart-card">
         <div className="chart-card-head">
-          <div>
-            <h2>Charts &amp; metrics</h2>
-            <p>{model.brand} {baseReference(model.reference)} · {prefs.currency}{prefs.region !== 'Global' ? ` · ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''}</p>
-          </div>
-          <div className="period-tabs" role="tablist" aria-label="Time range">
-            {periods.map(([v, l]) => (
-              <button key={v} role="tab" aria-selected={prefs.period === v} className={prefs.period === v ? 'active' : ''} onClick={() => onPrefs({ ...prefs, period: v })}>{l}</button>
-            ))}
-          </div>
+          <h2>Charts &amp; metrics</h2>
+          <button className="text-btn" onClick={() => setSpecsOpen(true)}>Model specifications <ChevronsRight size={15} /></button>
         </div>
         <div className="chart-tabs" role="tablist" aria-label="Chart">
           {([['listings', 'Listings'], ['volume', 'Volume'], ['days', 'Days on market']] as const).map(([v, l]) => (
@@ -449,16 +417,18 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                   ))}
                 </div>
               )}
-              <FilterBar prefs={prefs} onPrefs={onPrefs} extended />
-              {similarIn.length > 0 && <button className="text-btn" aria-pressed={showSimilar} onClick={() => setShowSimilar((v) => !v)}>{showSimilar ? 'Hide' : 'Show'} similar / unverified variants ({similarIn.length})</button>}
+              <button className="text-btn" aria-expanded={showFilters} onClick={() => setShowFilters((v) => !v)}>Filters <ChevronDown size={13} className={showFilters ? 'rot' : ''} /></button>
             </div>
+            {showFilters && <FilterBar prefs={prefs} onPrefs={onPrefs} extended />}
             {chartPoints.length ? (
-              <><PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} /><p className="fine">Complete-reference matches are preferred. Listings naming only Ref. {baseReference(model.reference)} are labelled when their dial/bracelet is unstated; they can contribute when fewer than three complete-variant prices are available. Explicit dial conflicts and similar models stay outside the market price. Sold · last ask is an advertised price, not the negotiated sale amount.</p></>
+              <>
+                <PriceScatter points={chartPoints} currency={prefs.currency} period={prefs.period} marketPrice={marketPrice} />
+                {hiddenOutliers > 0 && <p className="fine">{hiddenOutliers} far-off price{hiddenOutliers === 1 ? '' : 's'} hidden (also excluded from the market price).</p>}
+              </>
             ) : (
               <div className="chart-empty">
                 <div className="empty-chart-lines" />
                 <h3>{liveState === 'loading' ? 'Loading prices…' : 'No prices for these filters yet'}</h3>
-                <p>{liveState === 'loading' ? 'Checking live marketplaces.' : `No prices for Ref. ${baseReference(model.reference)} match these filters. You can view similar / unverified variants separately or record a verified price.`}</p>
               </div>
             )}
           </>
@@ -468,141 +438,103 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         <MetricsGrid m={metrics} hasRetail={Boolean(retail)} onRetail={() => { setRetailEdit(true); scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </section>
 
-      <RiskPanel m={metrics} reference={`${model.brand} ${baseReference(model.reference)}`} />
-
       <section className="panel">
         <div className="section-head">
-          <div>
-            <h2>Listings for this reference <span className="count-pill">{exactIn.length}</span></h2>
-            <p>Automatically collected asking prices and reported sales, newest first. Listings are retained in your archive when a source stops returning them.</p>
-          </div>
+          <h2>Listings <span className="count-pill">{exactIn.length}</span></h2>
         </div>
         {liveState === 'loading' && !live ? (
           <div className="listing-grid">{Array.from({ length: 4 }, (_, i) => <div key={i} className="listing skeleton" />)}</div>
         ) : exactIn.length ? (
           <div className="listing-grid">{sortedExact.map((l) => <ListingCard key={l.url} l={l} />)}</div>
         ) : (
-          <p className="muted-line">No exact-reference listings match these filters in {prefs.currency}{prefs.region !== 'Global' ? ` for ${regions.find(([r]) => r === prefs.region)?.[1]}` : ''}.</p>
+          <p className="muted-line">No listings for this reference in {prefs.currency}{prefs.region !== 'Global' ? ` in ${regionName}` : ''}.</p>
         )}
-        {(live?.threads?.length ?? 0) > 0 && (
-          <div className="similar-block">
-            <p className="thread-head">Also for sale, price not in the forum preview</p>
-            <ul className="thread-list">
-              {live!.threads!.map((t) => (
-                <li key={t.url}>
-                  <a href={t.url} target="_blank" rel="noreferrer">{t.title} <ArrowUpRight size={12} /></a>
-                  <small>{t.source} · {fmtDate(t.date)}</small>
-                </li>
-              ))}
-            </ul>
-            <p className="fine">Open the thread and use the Save to WatchLedger button (select the price text first) to add its price.</p>
-          </div>
-        )}
-        {similarIn.length > 0 && (
+        {(similarIn.length > 0 || (live?.threads?.length ?? 0) > 0) && (
           <div className="similar-block">
             <button className="text-btn" aria-expanded={showSimilar} onClick={() => setShowSimilar((v) => !v)}>
-              {showSimilar ? 'Hide' : 'Show'} {similarIn.length} similar / unverified listings <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
+              {showSimilar ? 'Hide' : 'Show'} similar listings and unpriced threads ({similarIn.length + (live?.threads?.length ?? 0)}) <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
             </button>
-            <p className="fine">These may have a different dial, bracelet or model reference, or omit the variant suffix. They are hidden from the graph by default and never used for the market price.</p>
-            {showSimilar && <div className="listing-grid">{similarIn.map((l) => <ListingCard key={l.url} l={l} />)}</div>}
+            {showSimilar && (
+              <>
+                <p className="fine">Similar listings may be another dial, bracelet or reference. They are never used for the market price.</p>
+                {similarIn.length > 0 && <div className="listing-grid">{similarIn.map((l) => <ListingCard key={l.url} l={l} />)}</div>}
+                {(live?.threads?.length ?? 0) > 0 && (
+                  <ul className="thread-list">
+                    {live!.threads!.map((t) => (
+                      <li key={t.url}>
+                        <a href={t.url} target="_blank" rel="noreferrer">{t.title} <ArrowUpRight size={12} /></a>
+                        <small>{t.source} · {fmtDate(t.date)} · price not in preview</small>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
           </div>
         )}
       </section>
 
-      <section className="panel fee-panel">
-          <div className="fee-card">
-            <div className="fee-head">
-              <div>
-                <h3>Chrono24 price after fees</h3>
-                <p>Chrono24 keeps 6.95% of the sale. The listed price is what the buyer pays; the seller receives the rest.</p>
-              </div>
-              <label className="fee-input">
-                <span>Listed price ({prefs.currency})</span>
-                <input type="number" min="1" step="1" inputMode="numeric" placeholder={marketPrice ? String(Math.round(marketPrice)) : 'e.g. 9000'} value={sellInput} onChange={(e) => setSellInput(e.target.value)} />
-              </label>
+      {savedAll.length > 0 && (
+        <section className="panel">
+          <div className="section-head">
+            <h2>Your price records <span className="count-pill">{savedAll.length}</span></h2>
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Price</th><th>Type</th><th>Source</th><th>Date</th><th /></tr>
+              </thead>
+              <tbody>
+                {[...savedAll].sort((a, b) => b.data.observedAt.localeCompare(a.data.observedAt)).map((e) => (
+                  <tr key={e.id}>
+                    <td className="price-cell">{money(e.data.price, e.data.currency)}</td>
+                    <td><span className="tag">{statuses[e.data.status]}</span></td>
+                    <td>
+                      {e.data.url ? <a href={e.data.url} target="_blank" rel="noreferrer">{sourceName(e.data.sourceId)} <ExternalLink size={11} /></a> : sourceName(e.data.sourceId)}
+                      <small>{countries[e.data.country]}</small>
+                    </td>
+                    <td>{e.data.observedAt}</td>
+                    <td><button className="icon-btn" aria-label="Remove price record" onClick={() => onRemove(e.id)}><Trash2 size={14} /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <details className="panel more-panel">
+        <summary>More: risk breakdown, prices by region, Chrono24 fees <ChevronDown size={15} /></summary>
+        <RiskPanel m={metrics} reference={`${model.brand} ${baseReference(model.reference)}`} />
+        <div className="more-grid">
+          <div>
+            <h3>By region</h3>
+            <div className="region-list">
+              {regional.map(({ r, name, n, v }) => (
+                <button key={r} className={prefs.region === r ? 'active' : ''} onClick={() => onPrefs({ ...prefs, region: prefs.region === r ? 'Global' : r })}>
+                  <span>{name}<small>{n} price{n === 1 ? '' : 's'}</small></span>
+                  <strong>{money(v, prefs.currency)}</strong>
+                </button>
+              ))}
             </div>
-            {fees ? (
+          </div>
+          <div className="fee-card">
+            <h3>Chrono24 price after fees</h3>
+            <label className="fee-input">
+              <span>Listed price ({prefs.currency})</span>
+              <input type="number" min="1" step="1" inputMode="numeric" placeholder={marketPrice ? String(Math.round(marketPrice)) : 'e.g. 9000'} value={sellInput} onChange={(e) => setSellInput(e.target.value)} />
+            </label>
+            {fees && (
               <dl className="fee-rows">
-                <div><dt>Price with fees (buyer pays)</dt><dd>{money(fees.listed, prefs.currency)}</dd></div>
                 <div><dt>Chrono24 commission 6.95%</dt><dd className="neg">−{money(fees.commission, prefs.currency)}</dd></div>
                 <div className="total"><dt>Seller receives</dt><dd>{money(fees.sellerNet, prefs.currency)}</dd></div>
                 <div className="hint"><dt>To receive {money(fees.listed, prefs.currency)}, list at</dt><dd>{money(fees.listToNet, prefs.currency)}</dd></div>
               </dl>
-            ) : (
-              <p className="fine">Enter a price, or wait for a market price, to see the breakdown.</p>
             )}
-            <div className="fee-actions">
-              {live?.sources.find((x) => x.id === 'chrono24')?.searchUrl && (
-                <a className="secondary" href={live.sources.find((x) => x.id === 'chrono24')!.searchUrl} target="_blank" rel="noreferrer">
-                  See this watch on Chrono24 <ArrowUpRight size={13} />
-                </a>
-              )}
-              <button className="text-btn" onClick={() => onModal('observation')}>
-                <Plus size={13} />Record a Chrono24 price
-              </button>
-            </div>
+            {chrono24Url && <a className="text-btn" href={chrono24Url} target="_blank" rel="noreferrer">See this watch on Chrono24 <ArrowUpRight size={13} /></a>}
           </div>
-      </section>
-
-      <section className="detail-split">
-        <div className="panel">
-          <div className="section-head">
-            <h2>By region</h2>
-          </div>
-          <div className="region-list">
-            {regional.map(({ r, name, n, v }) => (
-              <button key={r} className={prefs.region === r ? 'active' : ''} onClick={() => onPrefs({ ...prefs, region: prefs.region === r ? 'Global' : r })}>
-                <span>
-                  {name}
-                  <small>{n} price{n === 1 ? '' : 's'}</small>
-                </span>
-                <strong>{money(v, prefs.currency)}</strong>
-              </button>
-            ))}
-          </div>
-          <p className="fine">Region follows seller location, not auction venue. {prefs.convert === 'off' ? `Only ${prefs.currency} prices are included.` : 'Other currencies use ECB reference rates where available.'}</p>
         </div>
-        <div className="panel">
-          <div className="section-head">
-            <h2>Your price records <span className="count-pill">{savedAll.length}</span></h2>
-            <button className="secondary" onClick={() => onModal('observation')}>
-              <Plus size={14} />Record
-            </button>
-          </div>
-          {savedAll.length ? (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr><th>Price</th><th>Type</th><th>Source</th><th>Date</th><th /></tr>
-                </thead>
-                <tbody>
-                  {[...savedAll].sort((a, b) => b.data.observedAt.localeCompare(a.data.observedAt)).map((e) => (
-                    <tr key={e.id}>
-                      <td className="price-cell">
-                        {money(e.data.price, e.data.currency)}
-                        {feeBreakdown(e.data.price, e.data.sourceId) && <small>Seller gets {money(feeBreakdown(e.data.price, e.data.sourceId)!.sellerNet, e.data.currency)}</small>}
-                      </td>
-                      <td><span className="tag">{statuses[e.data.status]}</span></td>
-                      <td>
-                        {e.data.url ? (
-                          <a href={e.data.url} target="_blank" rel="noreferrer">{sourceName(e.data.sourceId)} <ExternalLink size={11} /></a>
-                        ) : sourceName(e.data.sourceId)}
-                        <small>{countries[e.data.country]}</small>
-                      </td>
-                      <td>{e.data.observedAt}</td>
-                      <td>
-                        <button className="icon-btn" aria-label="Remove price record" onClick={() => onRemove(e.id)}><Trash2 size={14} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="muted-line">No saved prices yet. Bookmark a live listing above or record a sale you know about.</p>
-          )}
-        </div>
-      </section>
+      </details>
 
       {related.length > 0 && (
         <section className="home-section">
@@ -619,6 +551,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           </div>
         </section>
       )}
+
+      {specsOpen && <ModelSpecs model={model} onClose={() => setSpecsOpen(false)} onOpen={(id) => { setSpecsOpen(false); onNavigate({ view: 'watch', id }); }} />}
     </div>
   );
 }

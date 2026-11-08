@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '../../../../db';
 import { records } from '../../../../db/schema';
 import { findCatalogModel } from '../../../../lib/catalog';
-import { currentArchiveMatches, MARKET_OWNER, watchMarket } from '../../../../lib/watch-market';
+import { currentArchiveMatches, MARKET_OWNER, watchMarket } from '../../../../lib/market-archive/watch-market';
 
 // The owner-only Sites gateway authenticates service requests. This updates public catalog data only.
 export async function POST(req: Request) {

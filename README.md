@@ -36,13 +36,17 @@ WatchLedger has its own API for catalog searches, personal records, marketplace 
 | Phillips | Automatic public auction results: verifies brand/reference on lot pages, imports reported sale amounts and auction end dates. Up to eight sold lots from the first search page. |
 | Tori.fi, FINN.no, Blocket, DBA | Live asking prices from Finland, Norway, Sweden and Denmark (one shared classifieds platform). Listings naming only the base reference count as "same reference", labelled, unless they name a different dial. |
 | WatchRecon | Sale posts indexed from watch forums (mostly r/Watchexchange, r/Watch_Swap, TimeZone), with price and post date. |
-| eBay | Browse API adapter for active listings; requires server-side application credentials and production API access. |
+| eBay | Browse API adapter for active listings; requires server-side application credentials and an **enabled** production keyset (see MARKETPLACES.md: Marketplace Account Deletion endpoint at `/api/ebay/account-deletion`, `npm run ebay:check`). |
 | Chrono24 | Bot challenge on automated requests (not bypassed). Watch pages link to Chrono24's search; save listings with the **Save to WatchLedger** button or record them manually. Prices are shown with Chrono24's 6.95% commission: buyer price and seller net. |
 | Reddit r/Watchexchange | Reddit's public RSS is blocked/retired (Nov 2026) and new API keys are closed; posts arrive through WatchRecon. Existing API keys still work until March 2027. |
+| Kellofoorumi, Klocksnack, Tidssonen | Finnish, Swedish and Norwegian watch-forum sale sections (public RSS, archived). Prices read in the local currency; sold and wanted posts recognised. |
+| Auctionet | Sold lots from Nordic, UK and EU auction houses via Auctionet's public item API; winning bid (buyer's premium excluded) and closing date. |
 | WatchUSeek | Sale-forum RSS feed archived as it is read; threads naming a reference with a price in the title or preview are used. |
 | Facebook groups | No API exists; use the **Save to WatchLedger** browser button on a post. |
 | Any website | **Save to WatchLedger** browser button: reads the listing you are viewing (structured price data or selected text) and adds it to your history. |
 | Custom marketplaces | Save a source name and link, then record observations manually. Adding a link does not create a scraper. |
+
+Search ranks watches with the most priced market observations first among equally close matches (an exact reference always stays on top), shows the count on results and suggestions, and the home page lists the **most tracked watches**. `node scripts/seed-popular.mjs [base URL]` collects data for ~40 widely traded references to start that list.
 
 Collection runs when a watch is opened; a protected refresh endpoint also supports unattended updates. Marketplace listings are retained automatically in D1; missing listings keep their last observed status rather than being marked sold. Price history also includes saved observations; historical market data is not preloaded. Asking prices, confirmed sales, and the last asking price of a sold watch are kept distinct. Different currencies are never combined or automatically converted.
 

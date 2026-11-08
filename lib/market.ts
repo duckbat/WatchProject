@@ -10,6 +10,7 @@ export const defaultSources = [
  {id:"phillips",name:"Phillips auctions",url:"https://www.phillips.com",country:"",mode:"Automatic auction results"},
  {id:"antiquorum",name:"Antiquorum",url:"https://catalog.antiquorum.swiss",country:"",mode:"Automatic reported sales"},
  {id:"christies",name:"Christie’s",url:"https://onlineonly.christies.com",country:"",mode:"Automatic sales · selected catalogues"},
+ {id:"auctionet",name:"Auctionet",url:"https://auctionet.com",country:"",mode:"Automatic sales · winning bid"},
  {id:"bukowskis",name:"Bukowskis",url:"https://www.bukowskis.com",country:"",mode:"Not connected · access challenge"},
  {id:"kaplans",name:"Kaplans",url:"https://www.kaplans.se",country:"",mode:"Not connected · access blocked"},
  {id:"cheffins",name:"Cheffins",url:"https://fineart.cheffins.co.uk",country:"",mode:"Not connected · access challenge"},
@@ -22,13 +23,16 @@ export const defaultSources = [
  {id:"blocket",name:"Blocket",url:"https://www.blocket.se",country:"SE",mode:"Automatic asking prices"},
  {id:"dba",name:"DBA",url:"https://www.dba.dk",country:"DK",mode:"Automatic asking prices"},
  {id:"watchrecon",name:"WatchRecon (sale forums)",url:"https://www.watchrecon.com",country:"",mode:"Automatic forum asking prices"},
+ {id:"kellofoorumi",name:"Kellofoorumi",url:"https://kellofoorumi.fi/forums/yksityisten-ilmoitukset.8/",country:"FI",mode:"Automatic forum asking prices"},
+ {id:"klocksnack",name:"Klocksnack",url:"https://klocksnack.se/forums/handla-s%C3%A4ljes-bytes-k%C3%B6pes.11/",country:"SE",mode:"Automatic forum asking prices"},
+ {id:"tidssonen",name:"Tidssonen",url:"https://www.tidssonen.no/forum/forums/marked-%E2%80%93-klokker.9/",country:"NO",mode:"Automatic forum asking prices"},
  {id:"timezone",name:"TimeZone",url:"https://forums.timezone.com",country:"",mode:"Via WatchRecon"},
  {id:"facebook",name:"Facebook groups",url:"https://www.facebook.com/groups/",country:"",mode:"Manual observations"},
  {id:"fb-1424920254386825",name:"Facebook watch group",url:"https://www.facebook.com/groups/1424920254386825/",country:"",mode:"Manual observations"},
- {id:"watchuseek",name:"WatchUSeek",url:"https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/",country:"",mode:"Manual observations"},
+ {id:"watchuseek",name:"WatchUSeek",url:"https://www.watchuseek.com/forums/watches-private-sellers-and-sponsors.29/",country:"",mode:"Automatic forum asking prices"},
  {id:"web",name:"Other website",url:"",country:"",mode:"Manual observations"},
 ];
-export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string};
+export type Model = typeof catalog[number] & {imageUrl?:string;imageSource?:string;priced?:number}; // priced: market observations found (search results only)
 export type Source = typeof defaultSources[number];
 export type Observation = {modelId:string;sourceId:string;country:string;currency:string;price:number;status:string;observedAt:string;condition:string;sellerType:string;contents:string;url:string};
 export type Owned = {modelId:string;cost:number;currency:string;purchaseDate:string};

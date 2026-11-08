@@ -1,15 +1,9 @@
 import assert from 'node:assert/strict';
-import ts from 'typescript';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lib } from './helpers/lib.mjs';
+import { readFile } from 'node:fs/promises';
 
-await mkdir('.sites-runtime/test-modules', { recursive: true });
-for (const name of ['market', 'collectors', 'phillips', 'listing-archive']) {
-  const source = await readFile(`lib/${name}.ts`, 'utf8');
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace(/from '(\.\/[^']+)'/g, "from '$1.mjs'");
-  await writeFile(`.sites-runtime/test-modules/${name}.mjs`, output);
-}
-const { phillipsResults, parsePhillipsSale } = await import('../.sites-runtime/test-modules/phillips.mjs');
-const { mergeListings, listingKind, reclassifyListings } = await import('../.sites-runtime/test-modules/listing-archive.mjs');
+const { phillipsResults, parsePhillipsSale } = await lib('collectors');
+const { mergeListings, listingKind, reclassifyListings } = await lib('market-archive/listings');
 const model = { id: 'dj', brand: 'Rolex', reference: '126200-0001', name: 'Datejust 36' };
 const now = new Date('2026-11-08T12:00:00Z');
 // Reduced public markup from Phillips lot 231452, fetched November 8, 2026.

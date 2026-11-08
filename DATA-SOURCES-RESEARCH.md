@@ -44,7 +44,7 @@ Still open (not changed):
 | **Reddit r/Watchexchange** | RSS **403** ("blocked due to a network policy") | RSS retired 13 Nov 2026; new API keys closed 31 Oct 2026; public API ends March 2027 | WatchRecon (above); commercial Reddit data licence otherwise | Reddit direct marked "blocked" |
 | **WatchUSeek** | RSS 200 | none | Public RSS, archived | ✅ unchanged |
 | **Omega Forums, TZ-UK, Rolex Forums, UhrForum** | 403 / Cloudflare challenge | none | Partly via WatchRecon; otherwise manual | — |
-| **eBay** | API works with valid keys | Browse API (active listings, free). Sold prices: Marketplace Insights, limited release, approval rarely granted | **Fix the production keyset** (Marketplace Account Deletion exemption). Biggest global source still unused. | Code ready; keys rejected |
+| **eBay** | Sandbox keys work; production keys `invalid_client` (keyset disabled until Marketplace Account Deletion is handled). Endpoint `/api/ebay/account-deletion` and `npm run ebay:check` added | Browse API (active listings, free). Sold prices: Marketplace Insights, limited release, approval rarely granted | **Fix the production keyset** (Marketplace Account Deletion exemption). Biggest global source still unused. | Code ready; keys rejected |
 | **Chrono24** | Cloudflare challenge | No public API or partner feed found | (a) Browser-extension capture of pages you view; (b) WatchCharts API (licensed, Chrono24-heavy market data): Pay-as-you-go $99/mo + credits, Level 1 $600/mo, internal-use licence | Bookmarklet only |
 | **Catawiki** | Akamai "Access Denied" | No public API. Partner network (Awin/TradeTracker) offers product feeds of *live* lots; directory listings show programs closed | (a) Browser-extension capture of lot/result pages; (b) apply to the Catawiki partner network for the feed (asks/estimates, not results) | Bookmarklet only |
 | **Phillips** | **403** maintenance/block page since 8 Nov | none | Retry later; retained results are kept | Marked "blocked" |
@@ -52,7 +52,17 @@ Still open (not changed):
 | **Christie's / Sotheby's** | 200 JS app / redirect | none | Same investigation as Bonhams | — |
 | **Facebook groups / Marketplace** | — | Groups API removed 2024 | Existing "Import group posts" + save button; extension capture | Manual |
 | **Telegram sale channels** | `t.me/s/<channel>` 200 | Bot API only for channels you admin | Public web preview of *public* channels; prices from text via `extractPrice` | — (good next step) |
-| **Kleinanzeigen (DE), Marktplaats (NL)** | 200 | No public API | Check terms/robots before adding | — |
+| **Kleinanzeigen (DE)** | 200 | No public API | Terms §5 forbid crawlers/scrapers without written consent | — not added |
+| **Marktplaats (NL)** | 200, prices in page data | No public API | Claims database right over its ads | — not added |
+| **Kellofoorumi (FI)** private ads | RSS 200, 50 posts, ~58% priced | none | Public RSS, archived | ✅ **new** |
+| **Klocksnack (SE)** "Säljes, Bytes, Köpes" | RSS 200, 60 posts, ~33% priced; crawl-delay 5 s | none | Public RSS, archived | ✅ **new** |
+| **Tidssonen (NO)** "Marked – klokker" | RSS 200, 20 posts, ~65% priced; crawl-delay 60 s | none | Public RSS, archived | ✅ **new** |
+| **Auctionet** (Nordic/UK/EU houses) | Public item API `api/v2/items.json` 200: state, bids, currency, close time | none needed | Sold lots at winning bid (premium excluded) | ✅ **new** |
+| **Tradera (SE)** | Captcha; official API has no sold data | Developer API (active items) | — | — |
+| **Lauritz, Bruun Rasmussen, Dorotheum, Heritage, Sotheby's** | 403 / captcha | none | Manual | — |
+| **Leboncoin, Subito, Ricardo, Vinted, Mercari, Yahoo! Auctions JP** | DataDome / Cloudflare / 403 | none | Manual | — |
+| **EveryWatch** | robots.txt disallows | Paid (~$49/mo), no public API found | Licensed data only | — |
+| **Chronext** | 200 but prices load client-side | none | — | — |
 | **Huuto.net (FI)** | Cloudflare challenge | — | Manual | — |
 | **Bob's Watches and other dealers** | 200 | — | Dealer asks; useful as "dealer price" reference | — |
 

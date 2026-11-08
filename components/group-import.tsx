@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight, Check, ClipboardPaste, ExternalLink, Loader2, X } from 'lucide-react';
 import { countries, currencies, money, type Entry, type Model } from '../lib/market';
-import { extractPrice } from '../lib/collectors';
+import { extractPrice } from '../lib/collectors/core/price';
 import { isSold, parsePostDate, postLink, splitPosts } from '../lib/post-import';
 import { today, type Route } from './shared';
 

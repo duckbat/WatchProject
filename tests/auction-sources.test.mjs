@@ -1,16 +1,10 @@
 import assert from 'node:assert/strict';
-import ts from 'typescript';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lib } from './helpers/lib.mjs';
+import { readFile } from 'node:fs/promises';
 
-await mkdir('.sites-runtime/test-modules', { recursive: true });
-for (const name of ['market', 'collectors', 'auction-sources', 'listing-archive']) {
-  const source = await readFile(`lib/${name}.ts`, 'utf8');
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace(/from '(\.\/[^']+)'/g, "from '$1.mjs'");
-  await writeFile(`.sites-runtime/test-modules/${name}.mjs`, output);
-}
-const { parseAntiquorum, parseChristies, christiesCatalogue, collectAuctionSources } = await import('../.sites-runtime/test-modules/auction-sources.mjs');
-const { mergeListings, reclassifyListings } = await import('../.sites-runtime/test-modules/listing-archive.mjs');
-const { classifyMatch } = await import('../.sites-runtime/test-modules/collectors.mjs');
+const { parseAntiquorum, parseChristies, christiesCatalogue, collectAuctionSources, parseAuctionet } = await lib('collectors');
+const { mergeListings, reclassifyListings } = await lib('market-archive/listings');
+const { classifyMatch } = await lib('collectors');
 const model = { id: 'op', brand: 'Rolex', reference: '124300', name: 'Oyster Perpetual / Blue' };
 const now = new Date('2026-11-08T12:00:00Z');
 const blueVariant = { ...model, reference: '124300-0003' };
@@ -53,13 +47,27 @@ assert.ok(mergeListings(archive, [], now.toISOString()).every(l => l.status === 
 const requested = [];
 const fetcher = async url => {
   requested.push(String(url));
-  return new Response(String(url).includes('antiquorum') ? antique : catalogue([lot]));
+  return new Response(String(url).includes('antiquorum') ? antique : String(url).includes('auctionet') ? '{"items":[]}' : catalogue([lot]));
 };
 const collected = await collectAuctionSources(model, fetcher, now);
-assert.equal(collected.sources.length, 2);
+assert.equal(collected.sources.length, 3);
 assert.ok(collected.sources.every(s => s.status === 'ok'));
-assert.ok(requested.every(u => /^https:\/\/(catalog\.antiquorum\.swiss|onlineonly\.christies\.com)\//.test(u)));
-const blocked = await collectAuctionSources(model, async url => String(url).includes('antiquorum') ? new Response('Denied', { status: 403 }) : new Response(catalogue([lot])), now);
+assert.ok(requested.every(u => /^https:\/\/(catalog\.antiquorum\.swiss|onlineonly\.christies\.com|auctionet\.com\/api\/v2\/items\.json\?)/.test(u)));
+const blocked = await collectAuctionSources(model, async url => String(url).includes('antiquorum') ? new Response('Denied', { status: 403 }) : String(url).includes('auctionet') ? new Response('<html>maintenance</html>') : new Response(catalogue([lot])), now);
+assert.equal(blocked.sources.find(s => s.id === 'auctionet').status, 'error'); // A non-JSON answer is a changed source, not a sale.
 assert.equal(blocked.sources.find(s => s.id === 'antiquorum').status, 'blocked');
 assert.ok(blocked.listings.some(l => l.sourceId === 'christies'));
+
+// Auctionet: only sold lots count, at the winning bid, dated by the closing bid; unsold lots with bids are ignored.
+const auctionet = JSON.parse(await readFile('tests/fixtures/auctionet-submariner.json', 'utf8'));
+const sub16610 = { id: 'rolex-16610', brand: 'Rolex', name: 'Submariner Date', reference: '16610' };
+const an = parseAuctionet(auctionet, sub16610, now);
+assert.deepEqual(an.map(l => [l.match, l.price, l.currency, l.status]), [['exact', 5000, 'EUR', 'confirmed-sale'], ['similar', 90000, 'SEK', 'confirmed-sale']]);
+assert.equal(an[0].observedAt, '2021-07-17');
+assert.match(an[0].title, /Balclis via Auctionet, winning bid \(buyer’s premium excluded\)/);
+assert.ok(an[0].url.startsWith('https://auctionet.com/en/1786480-'));
+assert.equal(parseAuctionet(auctionet, { id: 'rolex-116610lv', brand: 'Rolex', name: 'Submariner', reference: '116610LV' }, now).filter(l => l.match !== 'similar').length, 0);
+assert.equal(parseAuctionet({ items: [{ ...auctionet.items[0], url: 'https://evil.test/en/1' }] }, sub16610, now).length, 0);
+assert.throws(() => parseAuctionet({ error: 'x' }, sub16610, now), /Auctionet/);
+
 console.log('New auction sources: realized amounts, sold outcomes, dates, currencies, URL bounds, variant evidence, archive retention and independent failures passed.');

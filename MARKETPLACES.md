@@ -9,6 +9,8 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
 | WatchRecon | None | Index of ~15 watch forums' sale sections. In practice now mostly r/Watchexchange and r/Watch_Swap, plus TimeZone. Gives price, post date and brand per post. Replaces Reddit's public RSS, which Reddit blocked. Only the newest ~2 weeks are searchable per check (robots.txt disallows `last_days`); posts are archived, so history grows with use. |
 | r/Watchexchange (RSS) | — | **Gone.** Reddit's public RSS returned HTTP 403 from 8 Nov 2026 and is retired on 13 Nov 2026. Reddit posts now arrive through WatchRecon. |
 | r/Watchexchange (API) | Optional `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | Also reads prices from the post body and searches the model line. New public API requests closed October 31, 2026; remaining public API access is scheduled to end March 2027. Approved access is required. |
+| Kellofoorumi (FI), Klocksnack (SE), Tidssonen (NO) | None | Public RSS feeds of the sale sections (private ads / "Säljes" / "Marked – klokker"), read at most every 30 minutes and archived. Prices in the post are read in the forum's currency ("45 000 kr", "5000:-", "32 000,-"); "MYYTY", "SÅLD", "SOLGT" mark sold; wanted ads ("O:", "Köpes", "Kjøpes") are skipped. robots.txt allows the feeds. |
+| Auctionet | None | Auctionet's public item API (Nordic, UK and EU auction houses, e.g. Stockholms Auktionsverk). Only lots in state *sold* count, at the winning bid, dated by the closing bid. Buyer's premium is **not** included. Searched by reference and by model family; Nordic houses rarely write modern references, so most matches are older references. |
 | WatchUSeek (Private Sellers and Sponsors) | None | The forum's public RSS feed (newest ~35 sale threads). There is no usable search (robots.txt disallows `/search/`) and thread pages sit behind a JavaScript bot check, so WatchLedger **archives every thread it sees** (feed checked at most every 30 min, when a watch page is opened) and matches each watch against the archive. A price is used when the title or feed preview states one; matching threads without a visible price are listed with links so you can save them with the button. Coverage grows the longer the app is used. |
 | eBay | Free keys, see below | Up to 50 active listings per watch from one eBay marketplace. |
 | Chrono24 | Save button | No public API, and automated requests get a bot check. Use **Save to WatchLedger** on listings you view. Prices show Chrono24's 6.95% commission. |
@@ -26,7 +28,11 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
 ## eBay (about 10 minutes, free)
 
 1. Sign up at https://developer.ebay.com (an ordinary eBay account works) and open **Application Keys**.
-2. Create a **Production** keyset. eBay asks about *Marketplace Account Deletion* notifications first: choose the option saying you do **not persist eBay user data** to get an exemption. WatchLedger only stores prices and listing links you choose to save.
+2. Create a **Production** keyset. **eBay keeps it disabled ("Non Compliant") until Marketplace Account Deletion is handled**; until then the keys fail with `invalid_client`. Open **Alerts & Notifications → Marketplace Account Deletion** and either:
+   - **Use the built-in endpoint (recommended).** WatchLedger answers eBay at `/api/ebay/account-deletion`. Set `EBAY_DELETION_ENDPOINT` (the full public HTTPS URL of that route on your hosted site, exactly as you enter it at eBay) and `EBAY_VERIFICATION_TOKEN` (32–80 characters: letters, digits, `_`, `-`) as hosting secrets, deploy, then enter the same URL and token at eBay and press **Send Test Notification**. WatchLedger stores listing titles, prices and links but no eBay usernames or user IDs, so the endpoint only acknowledges.
+   - **Or request the exemption** ("I do not persist eBay data"). Developers report mixed results; some keysets stay disabled.
+
+   eBay cannot reach `localhost`, so this step needs the hosted site (or another public HTTPS URL). Once the keyset is enabled, the same keys work in `npm run dev` too.
 3. Copy the **App ID (Client ID)** and **Cert ID (Client Secret)** into `.dev.vars`:
    ```
    EBAY_CLIENT_ID=YourApp-...-PRD-...
@@ -34,7 +40,7 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
    EBAY_MARKETPLACE=EBAY_DE
    ```
    `EBAY_MARKETPLACE` picks the site searched: `EBAY_DE`, `EBAY_US`, `EBAY_GB`, `EBAY_FR`, `EBAY_IT` or `EBAY_ES`.
-4. Restart `npm run dev` and open a watch: the eBay chip should say "N found". If it says "error", hover it for eBay's message.
+4. Run `npm run ebay:check`: it tests the production and sandbox keys from `.dev.vars` without printing them. Then restart `npm run dev` and open a watch: the eBay chip should say "N found". If it says "credentials required", the production keyset is still disabled (step 2).
 
 The Browse API gives active listings only (about 5,000 calls/day on the free tier). Sold prices need eBay's Marketplace Insights API, which requires approval.
 

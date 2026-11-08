@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Clock, Search, Tag, TrendingUp, X } from 'lucide-react';
 import type { Model } from '../lib/market';
 import WatchPhoto from './watch-photo';
@@ -50,10 +50,20 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
+  const [tracked, setTracked] = useState<Model[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
   useEffect(() => setValue(initial), [initial]);
+  // Shown before typing: the watches with the most market data.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/catalog?popular=1&limit=4', { signal: controller.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<{ items?: Model[] }>) : null))
+      .then((d) => setTracked(d?.items || []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const q = value.trim();
   useEffect(() => {
@@ -87,7 +97,11 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
     : [];
   const options: Option[] = q
     ? [{ type: 'query', label: q }, ...brandMatches.map((b) => ({ type: 'brand' as const, label: b.brand, count: b.count })), ...models.map((model) => ({ type: 'model' as const, model }))]
-    : [...recent.map((label) => ({ type: 'query' as const, label })), ...popularSearches.filter((s) => !recent.includes(s)).slice(0, 6 - Math.min(recent.length, 3)).map((label) => ({ type: 'query' as const, label }))];
+    : [
+        ...recent.map((label) => ({ type: 'query' as const, label })),
+        ...popularSearches.filter((s) => !recent.includes(s)).slice(0, (tracked.length ? 3 : 6) - Math.min(recent.length, 3)).map((label) => ({ type: 'query' as const, label })),
+        ...tracked.map((model) => ({ type: 'model' as const, model })),
+      ];
 
   useEffect(() => setActive(-1), [q, models.length]);
 
@@ -181,6 +195,7 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
         <ul className="suggestions" role="listbox" id={listId} aria-label="Search suggestions">
           {!q && <li className="suggestions-label" role="presentation">{recent.length ? 'Recent and popular' : 'Popular searches'}</li>}
           {options.map((o, i) => {
+            const label = !q && o.type === 'model' && (i === 0 || options[i - 1].type !== 'model') ? <li key="tracked-label" className="suggestions-label" role="presentation">Most tracked watches</li> : null;
             const common = {
               id: `${listId}-${i}`,
               role: 'option' as const,
@@ -207,14 +222,17 @@ export default function SearchBox({ initial = '', variant, brands, totalCatalog,
                 </li>
               );
             return (
-              <li key={o.model.id} {...common}>
-                <span className="suggestion-thumb"><WatchPhoto model={o.model} credit={false} iconSize={18} /></span>
-                <span className="suggestion-text">
-                  <Highlight text={`${o.model.brand} ${o.model.name}`} query={q} />
-                  <small>Ref. <Highlight text={o.model.reference} query={q} /></small>
-                </span>
-                <ArrowRight size={14} className="suggestion-go" />
-              </li>
+              <Fragment key={o.model.id}>
+                {label}
+                <li {...common}>
+                  <span className="suggestion-thumb"><WatchPhoto model={o.model} credit={false} iconSize={18} /></span>
+                  <span className="suggestion-text">
+                    <Highlight text={`${o.model.brand} ${o.model.name}`} query={q} />
+                    <small>Ref. <Highlight text={o.model.reference} query={q} />{o.model.priced ? ` · ${o.model.priced} market prices` : ''}</small>
+                  </span>
+                  <ArrowRight size={14} className="suggestion-go" />
+                </li>
+              </Fragment>
             );
           })}
           {q && loading && !models.length && <li className="suggestions-label" role="presentation">Finding watches…</li>}

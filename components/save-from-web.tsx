@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Bookmark, Check, MousePointerClick, Search } from 'lucide-react';
 import { countries, currencies, facebookGroupId, feeBreakdown, isBrandSite, money, type Model } from '../lib/market';
-import { extractPrice } from '../lib/collectors';
+import { extractPrice } from '../lib/collectors/core/price';
 import SearchBox from './search-box';
 import WatchPhoto from './watch-photo';
 import { statuses, today, type BrandFacet, type Route } from './shared';

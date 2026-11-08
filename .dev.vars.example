@@ -10,7 +10,11 @@ EBAY_MARKETPLACE=EBAY_DE
 EBAY_ENVIRONMENT=production
 EBAY_SANDBOX_CLIENT_ID=
 EBAY_SANDBOX_CLIENT_SECRET=
+# Marketplace Account Deletion (needed once to enable a new production keyset): the public HTTPS URL of
+# /api/ebay/account-deletion, exactly as entered on developer.ebay.com, and a 32-80 character token (letters, digits, _ -).
+EBAY_DELETION_ENDPOINT=
+EBAY_VERIFICATION_TOKEN=
 
-# Optional: Reddit API app. Without it, r/Watchexchange is searched via Reddit's public RSS feed.
+# Optional: Reddit API app. Without it, r/Watchexchange posts arrive via WatchRecon (Reddit's RSS feed is closed).
 REDDIT_CLIENT_ID=
 REDDIT_CLIENT_SECRET=

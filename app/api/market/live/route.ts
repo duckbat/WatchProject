@@ -4,7 +4,7 @@ import { getChatGPTUser } from '../../../chatgpt-auth';
 import { getDb } from '../../../../db';
 import { records } from '../../../../db/schema';
 import { findCatalogModel } from '../../../../lib/catalog';
-import { MARKET_OWNER, watchMarket } from '../../../../lib/watch-market';
+import { MARKET_OWNER, watchMarket } from '../../../../lib/market-archive/watch-market';
 
 const schema = z.object({ modelId: z.string().min(1).max(160), refresh: z.enum(['0', '1']).default('0') });
 

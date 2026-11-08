@@ -7,6 +7,8 @@ declare namespace Cloudflare {
     EBAY_ENVIRONMENT?: string;
     EBAY_SANDBOX_CLIENT_ID?: string;
     EBAY_SANDBOX_CLIENT_SECRET?: string;
+    EBAY_VERIFICATION_TOKEN?: string;
+    EBAY_DELETION_ENDPOINT?: string;
     REDDIT_CLIENT_ID?: string;
     REDDIT_CLIENT_SECRET?: string;
     BUCKET?: R2Bucket;

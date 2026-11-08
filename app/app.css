@@ -161,6 +161,7 @@
 .watch-tile-price { margin-top: auto; padding-top: 12px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .watch-tile-price strong { font-size: 17px; }
 .watch-tile-price small { font-size: 11px; color: var(--muted); }
+.watch-tile-price .see-price + small { white-space: nowrap; }
 .see-price { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--accent); font-weight: 600; }
 .app .owned-tag { font-size: 11px; padding: 3px 7px; right: 10px; bottom: 10px; top: auto; }
 
@@ -521,3 +522,44 @@
 @media (max-width: 760px) { .watch-tile-photo { height: 170px; } }
 .price-row.sold { background: #fdf6f0; }
 .price-row.sold .price-value strong { color: #a65a1f; }
+
+/* ---------- Watch page, simplified (Nov 2026) ---------- */
+.detail-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; padding-bottom: 20px; margin-bottom: 28px; border-bottom: 1px solid var(--line); }
+.detail-name { margin: 0 0 4px; font-size: 20px; font-weight: 600; color: var(--ink-2); }
+.detail-head h1 { margin: 0; font-size: 44px; font-weight: 650; letter-spacing: -1px; line-height: 1.05; }
+.detail-head .detail-actions .primary, .detail-head .detail-actions .secondary { border-radius: 999px; padding: 10px 18px; }
+.detail-hero .detail-photo { border: 0; background: transparent; }
+.detail-variant { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: 13px; }
+.detail-info .price-box { margin-top: 0; }
+.price-row .text-btn { font-size: 12px; }
+.detail-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 14px 2px 0; color: var(--muted); font-size: 13px; }
+.detail-status .text-btn { font-size: 13px; }
+.detail-status + .source-chips { margin-top: 10px; }
+.source-chips .fine { width: 100%; margin: 4px 0 0; color: var(--muted); }
+.chart-card-head { align-items: center; }
+.chart-card-head h2 { font-size: 22px; }
+.rot.lucide-chevron-down { transform: rotate(180deg); }
+.more-panel { padding: 0; overflow: hidden; }
+.more-panel summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; font-weight: 600; color: var(--ink-2); }
+.more-panel summary::-webkit-details-marker { display: none; }
+.more-panel[open] summary svg { transform: rotate(180deg); }
+.more-panel .risk-panel { margin: 0; border: 0; border-top: 1px solid var(--line-2); border-radius: 0; }
+.more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 18px 22px 22px; border-top: 1px solid var(--line-2); }
+.more-grid h3 { margin: 0 0 10px; font-size: 15px; }
+.more-grid .region-list { padding: 0; }
+.more-grid .fee-card { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.specs-modal { width: 560px; }
+.specs-modal h2 { margin: 0 0 18px; }
+.specs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.specs-table th, .specs-table td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+.specs-table th { width: 34%; font-weight: 600; background: var(--surface-2); }
+.spec-refs { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.spec-refs button { color: var(--accent); font-size: 14px; padding: 0; }
+.spec-refs button:hover { text-decoration: underline; }
+.spec-refs button.current { color: var(--ink); font-weight: 600; cursor: default; text-decoration: none; }
+.specs-source { margin-top: 14px; display: inline-flex; }
+@media (max-width: 760px) {
+  .detail-head { flex-direction: column; align-items: flex-start; }
+  .detail-head h1 { font-size: 32px; }
+  .more-grid { grid-template-columns: 1fr; }
+}
