@@ -21,7 +21,7 @@ Supported collector parameters: `provider` = `tori` or `ebay`; eBay additionally
 - **Chrono24**: observed access challenge; returns `unsupported_source` rather than bypassing it.
 - **Reddit / Facebook groups**: not configured; no private-group scraper. A custom source URL remains manual until a supported collector exists.
 
-Provider URLs are fixed in server code. Custom user URLs are never fetched server-side (prevents private-network requests). Fetches reject redirects, time out after 15 seconds, cap responses at 3 MB and stop on source errors. One request per user per minute, enforced by an atomic database key. No background scheduler is installed. Repeat collection on demand to accumulate history.
+Provider URLs are fixed in server code. Custom user URLs are never fetched server-side (prevents private-network requests). Fetches reject redirects, time out after 15 seconds, cap responses at 3 MB and stop on source errors. One request per user per minute, enforced by an atomic database key. A cron trigger refreshes the most popular Rolexes (with eBay) and other viewed watches (without eBay) in the background; see MARKETPLACES.md, "Automatic archive and unattended refresh".
 
 Unknown condition, seller type, box/papers and location stay unknown. Asking prices never become confirmed sales. Re-importing the same URL on the same date is rejected. Cross-source duplicate detection remains manual.
 

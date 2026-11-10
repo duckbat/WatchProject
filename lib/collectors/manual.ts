@@ -28,12 +28,7 @@ export async function collectPrices(
         'eBay needs EBAY_CLIENT_ID and EBAY_CLIENT_SECRET configured on the server.',
       );
     return exactCandidates(
-      await searchEbay(model, {
-        host: 'api.ebay.com',
-        id: secrets.EBAY_CLIENT_ID,
-        secret: secrets.EBAY_CLIENT_SECRET,
-        marketplace,
-      }),
+      (await searchEbay(model, { host: 'api.ebay.com', id: secrets.EBAY_CLIENT_ID, secret: secrets.EBAY_CLIENT_SECRET }, [marketplace])).listings,
     );
   }
   throw new CollectorError(

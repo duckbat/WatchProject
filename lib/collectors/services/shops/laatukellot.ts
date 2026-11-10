@@ -20,7 +20,7 @@ export function parseLaatukellot(body: unknown, model: Model, now = new Date()) 
     const title = `${p.name} Ref. ${p.model}${identity.dial ? ` · Dial: ${identity.dial}` : ''}`;
     const match = classifyIdentity(title, model, identity);
     if (!match) continue;
-    const candidate = collectedPrice.safeParse({ modelId: model.id, sourceId: 'laatukellot', country: 'UNKNOWN', currency: 'EUR', price: p.pricing.current_price, status: 'asking', observedAt: now.toISOString().slice(0, 10), condition: p.type === 'used_watch' ? 'used' : 'new', sellerType: 'dealer', contents: p.tags?.box?.value === 1 && p.tags?.papers?.value === 1 ? 'full-set' : 'unknown', url: url.origin + url.pathname, title: title.slice(0, 500), collectedAt: now.toISOString() });
+    const candidate = collectedPrice.safeParse({ modelId: model.id, sourceId: 'laatukellot', country: 'FI', currency: 'EUR', price: p.pricing.current_price, status: 'asking', observedAt: now.toISOString().slice(0, 10), condition: p.type === 'used_watch' ? 'used' : 'new', sellerType: 'dealer', contents: p.tags?.box?.value === 1 && p.tags?.papers?.value === 1 ? 'full-set' : 'unknown', url: url.origin + url.pathname, title: title.slice(0, 500), collectedAt: now.toISOString() });
     if (candidate.success) (p.type === 'used_watch' ? listings : retailOffers).push({ ...candidate.data, match, identity });
   }
   return { listings, retailOffers };

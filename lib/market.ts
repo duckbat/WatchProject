@@ -22,6 +22,7 @@ export const defaultSources = [
  {id:"chrono24",name:"Chrono24",url:"https://www.chrono24.com",country:"",mode:"Manual observations"},
  {id:"ebay-new",name:"eBay new (dealers)",url:"https://www.ebay.com",country:"",mode:"Automatic new-watch dealer prices"},
  {id:"ebay",name:"eBay",url:"https://www.ebay.com",country:"",mode:"Manual observations"},
+ {id:"ebay-sold",name:"eBay sold",url:"https://www.ebay.com",country:"",mode:"Automatic sold prices (eBay approval needed)"},
  {id:"reddit",name:"Reddit · r/Watchexchange",url:"https://www.reddit.com/r/Watchexchange/",country:"",mode:"Manual observations"},
  {id:"tori",name:"Tori.fi",url:"https://www.tori.fi",country:"FI",mode:"Automatic asking prices"},
  {id:"finn",name:"FINN.no",url:"https://www.finn.no",country:"NO",mode:"Automatic asking prices"},
@@ -53,11 +54,13 @@ Object.assign(countries,{AF:'Afghanistan',AM:'Armenia',AZ:'Azerbaijan',BH:'Bahra
 export const eu = new Set(["FI","DE","FR","IT","ES","NL","SE","DK","AT","BE","IE","PT","PL","CZ","EE","LV","LT","LU","MT","CY","GR","HR","SI","SK","HU","RO","BG"]);
 /** Seller regions offered in the header. A country code (FI, GB, …) also works as a region. */
 export const nordic = new Set(["FI","SE","NO","DK","IS"]);
+/** The "Europe" region: EU members plus every Nordic country (Norway and Iceland are not EU members). */
+export const europe = new Set([...eu, ...nordic]);
 export const latinAmerica = new Set(["MX","GT","BZ","HN","SV","NI","CR","PA","CU","DO","PR","HT","CO","VE","EC","PE","BO","BR","PY","UY","AR","CL"]);
 Object.assign(countries,{IS:"Iceland",MX:"Mexico",GT:"Guatemala",BZ:"Belize",HN:"Honduras",SV:"El Salvador",NI:"Nicaragua",CR:"Costa Rica",PA:"Panama",CU:"Cuba",DO:"Dominican Republic",PR:"Puerto Rico",HT:"Haiti",CO:"Colombia",VE:"Venezuela",EC:"Ecuador",PE:"Peru",BO:"Bolivia",BR:"Brazil",PY:"Paraguay",UY:"Uruguay",AR:"Argentina",CL:"Chile"});
 export function inRegion(country:string, region:string) {
  if (region === "Global") return true;
- const group = {EU:eu, Nordic:nordic, Asia:asia, Latin:latinAmerica}[region];
+ const group = {EU:europe, Nordic:nordic, Asia:asia, Latin:latinAmerica}[region];
  return group ? group.has(country) : country === region;
 }
 export function summarize(values:number[], method="median") { if(!values.length)return null; if(method==="average")return values.reduce((a,b)=>a+b,0)/values.length; const s=[...values].sort((a,b)=>a-b); const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2; }

@@ -25,7 +25,7 @@ Verified from the local checkout on 2026-11-08. Recheck affected code before tre
 3. `lib/collectors/services/` contains provider adapters. `core/http.ts` bounds time and response size, rejects redirects and applies isolate-local host backoff. `matching/` owns reference, dial and structured identity checks.
 4. `core/listing.ts` validates observations; `market-archive/listings.ts` merges stable/original dealer URLs and retains missing listings without inferring a sale.
 5. `lib/metrics.ts`, `lib/market.ts` and `lib/fx.ts` handle statistics, filters and conversion. Preserve original currency and source evidence; seller country determines region.
-6. `lib/market-archive/popularity.ts` caches shared market summaries and expands archived listings through D1 JSON queries; this is a possible scaling measurement target, not a measured latency defect.
+6. `lib/market-archive/popularity.ts` reads the per-watch `market-summary` rows written at collection (archives not yet converted to row storage are still expanded through D1 JSON queries). `lib/market-archive/storage.ts` defines the row layout; `refresh-plan.ts` / `scheduled-refresh.ts` the background refresh.
 
 `app/api/market/refresh/route.ts` provides the unattended public-catalog refresh path. It relies on the owner-private Sites gateway for service authentication and does not accept arbitrary external URLs or personal model IDs. Inspect the deployment audience before changing that boundary. See MARKETPLACES.md for bounded source coverage and status semantics.
 

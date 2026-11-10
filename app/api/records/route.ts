@@ -1,6 +1,6 @@
 import { findCatalogModel } from "../../../lib/catalog";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, notLike } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
 import { records } from "../../../db/schema";
@@ -17,11 +17,11 @@ const payload=z.discriminatedUnion("kind",[
  z.object({kind:z.literal("owned"),data:z.object({modelId:short,cost:z.number().finite().min(0).max(1e9),currency,purchaseDate:date})}),
  z.object({kind:z.literal("observation"),data:z.object({modelId:short,sourceId:short,country:z.string().refine(v=>v in countries),currency,price:z.number().finite().positive().max(1e9),status:z.enum(["asking","confirmed-sale","sold-asking"]),observedAt:date,condition:z.enum(["used","new","unknown"]),sellerType:z.enum(["private","dealer","unknown"]),contents:z.enum(["full-set","watch-only","unknown"]),url,title:z.string().max(500).optional(),collectedAt:z.string().datetime().optional()})})
 ]);
-export async function GET(){const user=await getChatGPTUser();if(!user)return Response.json({error:"Please sign in to access your tracker."},{status:401}); const rows=await getDb().select().from(records).where(eq(records.owner,user.userId));return Response.json(rows.filter(r=>!["collection-lock","market-lock","market-history"].includes(r.kind)).map(r=>({id:r.id,kind:r.kind,data:JSON.parse(r.payload)})),{headers:{"Cache-Control":"no-store"}});}
+export async function GET(){const user=await getChatGPTUser();if(!user)return Response.json({error:"Please sign in to access your tracker."},{status:401}); const rows=await getDb().select().from(records).where(and(eq(records.owner,user.userId),notLike(records.kind,"market-%")));return Response.json(rows.filter(r=>!["collection-lock","market-lock"].includes(r.kind)).map(r=>({id:r.id,kind:r.kind,data:JSON.parse(r.payload)})),{headers:{"Cache-Control":"no-store"}});}
 export async function POST(req:Request){const user=await getChatGPTUser();if(!user)return Response.json({error:"Please sign in."},{status:401});try{
  if(Number(req.headers.get("content-length"))>16000)return Response.json({error:"Request too large"},{status:413});
  const parsed=payload.safeParse(await req.json());if(!parsed.success)return Response.json({error:parsed.error.issues[0].message},{status:400});const {kind,data}=parsed.data;const db=getDb();
- const rows=await db.select().from(records).where(eq(records.owner,user.userId));
+ const rows=await db.select().from(records).where(and(eq(records.owner,user.userId),notLike(records.kind,"market-%")));
  if("modelId" in data && !findCatalogModel(data.modelId)&&!rows.some(r=>r.kind==="model"&&r.id===data.modelId))return Response.json({error:"Choose a watch model first."},{status:400});
  if("sourceId" in data&&!defaultSources.some(s=>s.id===data.sourceId)&&!rows.some(r=>r.kind==="source"&&r.id===data.sourceId))return Response.json({error:"Choose a source first."},{status:400});
  if(kind==="favorite"&&rows.some(r=>r.kind==="favorite"&&JSON.parse(r.payload).modelId===data.modelId))return Response.json({error:"Already in your favourites."},{status:409});

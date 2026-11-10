@@ -1,0 +1,1 @@
+CREATE INDEX `records_owner_kind` ON `records` (`owner`,`kind`);

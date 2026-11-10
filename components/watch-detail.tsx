@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, ChevronRight, ChevronsRight, ExternalLink, Info, Plus, RefreshCw, Store, Trash2, Watch, X } from 'lucide-react';
 import { brandSiteFor, convertPrice, countries, defaultSources, facebookGroupSearchUrl, feeBreakdown, inRegion, retailLookupUrl, latestListings, money, summarize, type Entry, type Model, type Observation } from '../lib/market';
 import FilterBar from './filter-bar';
@@ -56,6 +56,8 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   const [missing, setMissing] = useState(false);
   const [saving, setSaving] = useState('');
   const [showSimilar, setShowSimilar] = useState(false);
+  // Other models stored for this watch are not in the first load; they arrive when "Show similar" is opened.
+  const [otherSimilar, setOtherSimilar] = useState<{ modelId: string; listings: LiveListing[] } | null>(null);
   const [related, setRelated] = useState<Model[]>([]);
   const [sellInput, setSellInput] = useState('');
   const [chartTab, setChartTab] = useState<'listings' | 'volume' | 'days'>('listings');
@@ -81,16 +83,27 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelId, model]);
 
+  // The server answers at once with the stored archive while it collects newer prices; fetch once more afterwards.
+  const followUp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loadLive = useCallback(
     (refresh = false) => {
       setLiveState('loading');
       setLiveError('');
-      return fetch(`/api/market/live?${new URLSearchParams({ modelId, refresh: refresh ? '1' : '0' })}`)
+      clearTimeout(followUp.current);
+      const url = `/api/market/live?${new URLSearchParams({ modelId, refresh: refresh ? '1' : '0' })}`;
+      return fetch(url)
         .then(async (r) => {
           const d: any = await r.json();
           if (!r.ok) throw new Error(d.error || 'Live prices unavailable');
           setLive(d);
           setLiveState('ready');
+          if (d.refreshing)
+            followUp.current = setTimeout(() => {
+              fetch(url)
+                .then((n): Promise<LiveResult | null> | null => (n.ok ? n.json() : null))
+                .then((n: LiveResult | null) => n && n.fetchedAt !== d.fetchedAt && setLive({ ...n, refreshing: false }))
+                .catch(() => undefined);
+            }, 15_000);
         })
         .catch((e) => {
           setLiveError(e.message);
@@ -107,7 +120,19 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
       setLiveState('error');
       setLiveError('Sign in to load live marketplace prices.');
     }
+    return () => clearTimeout(followUp.current);
   }, [modelId, loadLive, signedIn]);
+  const othersToLoad = showSimilar && (live?.otherSimilar ?? 0) > 0 && otherSimilar?.modelId !== modelId;
+  useEffect(() => {
+    if (!othersToLoad) return;
+    const controller = new AbortController();
+    fetch(`/api/market/live?${new URLSearchParams({ modelId, similar: '1' })}`, { signal: controller.signal })
+      .then((r): Promise<{ listings?: LiveListing[] }> | { listings?: LiveListing[] } => (r.ok ? r.json() : { listings: [] }))
+      .then((d: { listings?: LiveListing[] }) => setOtherSimilar({ modelId, listings: d.listings || [] }))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [othersToLoad, modelId]);
+  const othersLoaded = otherSimilar?.modelId === modelId ? otherSimilar.listings : null;
 
   // The new-price and dial dialogs close with Escape, like the other dialogs.
   useEffect(() => {
@@ -160,7 +185,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
     return p === null ? [] : [{ ...e, data: { ...e.data, price: Math.round(p), currency: prefs.currency, originalPrice: e.data.currency === prefs.currency ? undefined : e.data.price, originalCurrency: e.data.currency === prefs.currency ? undefined : e.data.currency } }];
   });
   const savedShown = saved.filter((e) => matchesPrefs(e.data, prefs));
-  const listings: LiveListing[] = (live?.listings || []).flatMap((l) => {
+  const listings: LiveListing[] = [...(live?.listings || []), ...(othersLoaded || [])].flatMap((l) => {
     const p = toCur(l.price, l.currency);
     return p === null ? [] : [l.currency === prefs.currency ? l : { ...l, price: Math.round(p), currency: prefs.currency, originalPrice: l.price, originalCurrency: l.currency }];
   });
@@ -265,7 +290,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
   };
   // New price by region: an offer's item location, or the shop's home country when the offer has none.
   const offerCountry = (l: LiveListing) => (l.country !== 'UNKNOWN' ? l.country : defaultSources.find((s) => s.id === l.sourceId)?.country || 'UNKNOWN');
-  const newRegions: [string, string][] = [['Global', 'All'], ['EU', 'EU'], ['US', 'US'], ['Asia', 'Asia']];
+  const newRegions: [string, string][] = [['Global', 'All'], ['EU', 'Europe'], ['US', 'US'], ['Asia', 'Asia']];
   const offersIn = (r: string) => shopOffers.filter((l) => r === 'Global' || inRegion(offerCountry(l), r));
   const sitesIn = (r: string) => {
     const current = perSite(offersIn(r).filter((l) => !l.archived));
@@ -381,6 +406,10 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           {l.match === 'reference' && <span className="listing-source">Ref. {base} · {allDials ? 'any dial' : dialKnown && hasVariants ? `${variants.find((v) => v.id === model.id)?.dial || 'this'} dial` : 'dial/bracelet not stated'}</span>}
           <strong className="listing-price">{l.originalCurrency ? '≈ ' : ''}{money(l.price, l.currency)}<span className={`tag${l.status !== 'asking' ? ' sold-tag' : ''}`}>{l.status === 'confirmed-sale' ? 'Reported sale' : l.status === 'sold-asking' ? 'Sold · last ask' : l.archived ? 'Asking · last observed' : 'Asking'}</span></strong>
           {l.archived && l.lastSeenAt && <span className="listing-source">Last seen {fmtDate(l.lastSeenAt.slice(0, 10))} · availability not reverified</span>}
+          {l.priceChanges?.length ? (() => {
+            const was = l.priceChanges[l.priceChanges.length - 1], listed = l.originalPrice ?? l.price;
+            return <span className="listing-source">{was.price > listed ? 'Reduced' : 'Raised'} from {money(was.price, l.originalCurrency || l.currency)} · {fmtDate(was.date)}{l.priceChanges.length > 1 ? ` · ${l.priceChanges.length} price changes` : ''}</span>;
+          })() : null}
           {l.originalCurrency && <span className="listing-source">Listed at {money(l.originalPrice!, l.originalCurrency)} · converted</span>}
           {l.listedAt && <span className="listing-source">{l.sourceId === 'huuto' ? 'Sold listing closed' : l.status === 'confirmed-sale' ? 'Auction ended' : classifieds.has(l.sourceId) && l.sourceId !== 'ebay' ? 'Updated' : 'Listed'} {fmtDate(l.listedAt)}</span>}
           {l.sourceId === 'kellotux' && l.status !== 'asking' && !l.listedAt && <span className="listing-source">Sold status observed {fmtDate(l.observedAt)} · sale date unavailable</span>}
@@ -552,7 +581,7 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
                 ? 'Checking marketplaces…'
                 : liveState === 'error'
                   ? liveError
-                  : <>Updated {live && ago(live.fetchedAt)} from {okSources} sources{otherCurrency > 0 && <> · <button className="text-btn" onClick={() => onPrefs({ ...prefs, currency: topOther })}>{otherCurrency} more in {topOther}</button></>}</>}
+                  : <>Updated {live && ago(live.fetchedAt)} from {okSources} sources{live?.refreshing && ' · checking for newer prices…'}{otherCurrency > 0 && <> · <button className="text-btn" onClick={() => onPrefs({ ...prefs, currency: topOther })}>{otherCurrency} more in {topOther}</button></>}</>}
             </span>
             {live && <button className="text-btn" aria-expanded={showSources} onClick={() => setShowSources((v) => !v)}>Sources <ChevronDown size={13} className={showSources ? 'rot' : ''} /></button>}
             {liveState !== 'loading' && signedIn && <button className="text-btn" onClick={() => loadLive(true)}><RefreshCw size={13} />Refresh</button>}
@@ -597,10 +626,28 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
           <>
             <div className="chart-controls">
               {sourcesInChart.length > 0 && (
-                <div className="source-toggle" role="group" aria-label="Show or hide sources (colours)">
+                <div className="source-toggle" role="group" aria-label="Show only one source (⌘/Ctrl/Shift-click to add or remove one)">
                   <span className="legend-label" aria-hidden>Source</span>
                   {sourcesInChart.map(({ name, n }) => (
-                    <button key={name} aria-pressed={!hiddenSources.has(name)} className={hiddenSources.has(name) ? 'off' : ''} onClick={() => setHiddenSources((h) => { const x = new Set(h); if (x.has(name)) x.delete(name); else x.add(name); return x; })}>
+                    <button
+                      key={name}
+                      aria-pressed={!hiddenSources.has(name)}
+                      className={hiddenSources.has(name) ? 'off' : ''}
+                      title={`Show only ${name}; click again to show all. ⌘/Ctrl/Shift-click adds or removes it.`}
+                      onClick={(e) =>
+                        setHiddenSources((h) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                            const x = new Set(h);
+                            if (x.has(name)) x.delete(name);
+                            else x.add(name);
+                            return x;
+                          }
+                          // Clicking the only visible source shows them all again; otherwise show just this one.
+                          const soloed = !h.has(name) && sourcesInChart.every((s) => s.name === name || h.has(s.name));
+                          return soloed ? new Set() : new Set(sourcesInChart.map((s) => s.name).filter((x) => x !== name));
+                        })
+                      }
+                    >
                       <span className="dot" style={{ '--dot': chartColors[name] } as React.CSSProperties} />
                       {name}
                       <small>{n}</small>
@@ -646,14 +693,15 @@ export default function WatchDetail({ modelId, model, entries, sourceName, prefs
         ) : (
           <p className="muted-line">No listings for this reference in {prefs.currency}{prefs.region !== 'Global' ? ` in ${regionName}` : ''}.</p>
         )}
-        {(similarIn.length > 0 || (live?.threads?.length ?? 0) > 0) && (
+        {(similarIn.length > 0 || (live?.threads?.length ?? 0) > 0 || (live?.otherSimilar ?? 0) > 0) && (
           <div className="similar-block">
             <button className="text-btn" aria-expanded={showSimilar} onClick={() => setShowSimilar((v) => !v)}>
-              {showSimilar ? 'Hide' : 'Show'} similar listings and unpriced threads ({similarIn.length + (live?.threads?.length ?? 0)}) <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
+              {showSimilar ? 'Hide' : 'Show'} similar listings and unpriced threads ({similarIn.length + (live?.threads?.length ?? 0) + (othersLoaded ? 0 : live?.otherSimilar ?? 0)}) <ChevronRight size={14} className={showSimilar ? 'rot' : ''} />
             </button>
             {showSimilar && (
               <>
                 <p className="fine">Similar listings may be another dial, bracelet or reference. They are never used for the market price.</p>
+                {othersToLoad && <p className="muted-line">Loading other models…</p>}
                 {similarIn.length > 0 && <div className="listing-grid">{similarIn.map((l) => <ListingCard key={l.url} l={l} />)}</div>}
                 {(live?.threads?.length ?? 0) > 0 && (
                   <ul className="thread-list">

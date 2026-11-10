@@ -7,13 +7,13 @@ export type Prefs = { region: string; currency: string; basis: string; method: s
 export type ModalKind = '' | 'owned' | 'observation' | 'source' | 'model' | 'about';
 export type BrandFacet = { brand: string; count: number };
 export type Me = { user: { name: string | null; email: string; displayName: string } | null; signOutPath?: string; signInPath?: string };
-export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; matchDetails?: string; history?: { date: string; price: number }[]; identity?: import('../lib/collectors/core/listing').ListingIdentity; canonicalUrl?: string; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
+export type LiveListing = Observation & { title: string; collectedAt: string; match: 'exact' | 'reference' | 'similar'; matchDetails?: string; history?: { date: string; price: number }[]; priceChanges?: { date: string; price: number }[]; identity?: import('../lib/collectors/core/listing').ListingIdentity; canonicalUrl?: string; image?: string; listedAt?: string; archived?: boolean; firstSeenAt?: string; lastSeenAt?: string; originalPrice?: number; originalCurrency?: string };
 export type SourceStatus = { id: string; name: string; status: 'ok' | 'error' | 'credentials_required' | 'blocked'; count: number; message?: string; searchUrl?: string };
-export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; retailOffers?: LiveListing[]; sources: SourceStatus[]; threads?: { title: string; url: string; date: string; source: string }[] };
+export type LiveResult = { modelId: string; fetchedAt: string; listings: LiveListing[]; retailOffers?: LiveListing[]; sources: SourceStatus[]; threads?: { title: string; url: string; date: string; source: string }[]; refreshing?: boolean; otherSimilar?: number };
 
 export const defaultPrefs: Prefs = { region: 'Global', currency: 'EUR', basis: 'all', method: 'median', period: '365', condition: 'all', seller: 'all', convert: 'on', dialScope: 'all' };
 export const statuses: Record<string, string> = { asking: 'Asking price', 'confirmed-sale': 'Confirmed sale', 'sold-asking': 'Sold · last ask' };
-export const regions: [string, string][] = [['Global', 'All world'], ['EU', 'EU'], ['Nordic', 'Nordic'], ['US', 'US'], ['Asia', 'Asia'], ['Latin', 'Latin America']];
+export const regions: [string, string][] = [['Global', 'All world'], ['EU', 'Europe'], ['Nordic', 'Nordic'], ['US', 'US'], ['Asia', 'Asia'], ['Latin', 'Latin America']];
 export const periods: [string, string][] = [['30', '1M'], ['90', '3M'], ['180', '6M'], ['365', '1Y'], ['36500', 'All']];
 export const popularBrands = ['Rolex', 'Omega', 'Tudor', 'Cartier', 'Patek Philippe', 'Audemars Piguet', 'Seiko', 'Grand Seiko', 'TAG Heuer', 'Breitling', 'IWC', 'Longines'];
 export const popularSearches = ['Rolex Submariner', 'Omega Speedmaster', 'Tudor Black Bay', 'Rolex Datejust 36', 'Cartier Santos', 'Seiko Prospex'];

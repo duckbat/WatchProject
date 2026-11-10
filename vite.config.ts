@@ -18,6 +18,8 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  // Scheduled market refresh (worker/index.ts `scheduled`).
+  triggers: { crons: ["*/5 * * * *"] },
   d1_databases: d1
     ? [
         {

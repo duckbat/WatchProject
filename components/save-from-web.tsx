@@ -6,8 +6,10 @@ import { extractPrice } from '../lib/collectors/core/price';
 import SearchBox from './search-box';
 import WatchPhoto from './watch-photo';
 import { statuses, today, type BrandFacet, type Route } from './shared';
+import EbaySoldImport from './ebay-sold-import';
+import type { EbayCard } from '../lib/ebay-sold-page';
 
-type Clip = { url: string; title: string; price?: string | number | null; currency?: string | null; image?: string | null; text?: string; site?: string };
+type Clip = { url: string; title: string; price?: string | number | null; currency?: string | null; image?: string | null; text?: string; site?: string; cards?: EbayCard[] | null };
 type Source = { id: string; name: string; country?: string; url?: string };
 
 /**
@@ -20,7 +22,8 @@ function bookmarkletSource(origin: string) {
 const walk=o=>{if(!o||typeof o!=='object')return;if(Array.isArray(o))return o.forEach(walk);const off=o.offers;if(off&&price==null){const x=Array.isArray(off)?off[0]:off;const p=x&&(x.price??x.lowPrice);if(p!=null){price=p;currency=x.priceCurrency;if(o.name)title=o.name}}for(const v of Object.values(o))if(v&&typeof v==='object')walk(v)};
 for(const s of document.querySelectorAll('script[type="application/ld+json"]')){try{walk(JSON.parse(s.textContent))}catch(e){}}
 price=price??m('product:price:amount')??m('og:price:amount')??m('price');currency=currency||m('product:price:currency')||m('og:price:currency')||m('priceCurrency');
-const sel=String(getSelection()||'').trim();const d={url:location.href.split('#')[0],title:String(title||'').trim().slice(0,300),price,currency,image:m('og:image')||null,text:(sel||m('og:description')||'').slice(0,1500),site:location.hostname};
+let cards=null;if(/(^|[.])ebay[.]/.test(location.hostname)&&location.pathname.startsWith('/sch/')){const seen=new Set();cards=[];for(const a of document.querySelectorAll('a[href*="/itm/"]')){const id=(a.href.match(/[/]itm[/](?:[^/?#]+[/])?([0-9]{9,15})/)||[])[1];if(!id||seen.has(id))continue;const c=a.closest('li')||a.parentElement;const t=((c&&c.innerText)||'').trim();if(!t)continue;seen.add(id);cards.push({url:location.origin+'/itm/'+id,text:t.slice(0,500)});if(cards.length>=240)break}title=new URLSearchParams(location.search).get('_nkw')||title}
+const sel=String(getSelection()||'').trim();const d={url:location.href.split('#')[0],title:String(title||'').trim().slice(0,300),price,currency,image:m('og:image')||null,text:(sel||m('og:description')||'').slice(0,1500),site:location.hostname,cards};
 window.open(${JSON.stringify(origin)}+'/?view=clip#'+encodeURIComponent(JSON.stringify(d)),'_blank')})()`;
 }
 
@@ -38,6 +41,7 @@ export function BookmarkletInstall() {
       <ol>
         <li>Drag the green button to your browser’s bookmarks bar (show it with ⌘⇧B / Ctrl+Shift+B).</li>
         <li>Open a listing on Chrono24, a Facebook group post, Reddit, eBay or any shop.</li>
+        <li>For eBay sold prices, search eBay, tick <strong>Sold items</strong> in the filters and click the bookmark on the results page: every sale on that page is offered for import.</li>
         <li>On Facebook, open the post itself (click its date) and <strong>select the post text</strong> first, since Facebook pages have no structured price.</li>
         <li>Click the bookmark. WatchLedger opens with the price, link and title filled in; pick the watch and save.</li>
       </ol>
@@ -160,7 +164,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
       <div className="account-head">
         <div>
           <p className="eyebrow">SAVED FROM {String(clip.site || '').toUpperCase()}</p>
-          <h1>Add this listing</h1>
+          <h1>{clip.cards ? 'Add eBay sales' : 'Add this listing'}</h1>
           <p className="subtitle clip-title">{clip.title || clip.url}</p>
         </div>
       </div>
@@ -198,6 +202,9 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
           )}
         </section>
 
+        {clip.cards ? (
+          <EbaySoldImport cards={clip.cards} model={model} onSave={onSave} onDone={() => { history.replaceState(null, '', location.pathname + location.search); if (model) onNavigate({ view: 'watch', id: model.id }); }} />
+        ) : (
         <form className="panel clip-panel clip-form" onSubmit={submit}>
           <h2>Price details</h2>
           <div className="kind-toggle" role="radiogroup" aria-label="Save as">
@@ -236,6 +243,7 @@ export default function ClipView({ brands, sources, onSave, onNavigate }: { bran
             <button className="primary" disabled={busy || !model}>{busy ? 'Saving…' : model ? `Save ${kind === 'retail' ? 'retail price' : 'price'} for ${model.brand} ${model.reference}` : 'Choose a watch first'}</button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

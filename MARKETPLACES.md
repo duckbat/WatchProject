@@ -42,7 +42,12 @@ Watch pages combine these sources. Keys go in `.dev.vars` for local development 
    `EBAY_MARKETPLACE` picks the site searched: `EBAY_DE`, `EBAY_US`, `EBAY_GB`, `EBAY_FR`, `EBAY_IT` or `EBAY_ES`.
 4. Run `npm run ebay:check`: it tests the production and sandbox keys from `.dev.vars` without printing them. Then restart `npm run dev` and open a watch: the eBay chip should say "N found". If it says "credentials required", the production keyset is still disabled (step 2).
 
-The Browse API gives active listings only (about 5,000 calls/day on the free tier). Sold prices need eBay's Marketplace Insights API, which requires approval.
+Listings are searched on `EBAY_MARKETPLACE` plus eBay US, GB and DE (up to 200 per site; about 10 Browse calls per watch refresh including new-watch offers, against roughly 5,000 calls/day on the free tier). An item listed on several eBay sites counts once, and prices keep the seller's currency (eBay US would otherwise show a €10,450 listing as $11,644).
+
+### eBay sold prices
+
+- **Automatic (needs eBay approval):** sold prices come only from eBay's Marketplace Insights API, a limited-release API. Apply for it for your application on developer.ebay.com. Once approved, the same keys start the **eBay sold** chip on watch pages: price paid and sale date of the last 90 days, as confirmed sales. Until then the chip says "not connected".
+- **Now, from your browser:** search eBay for the watch, tick **Sold items** in the filters (the URL contains `LH_Sold=1`), then click **Save to WatchLedger**. WatchLedger lists every sale on that page, ticks the ones that match the chosen watch, and saves them with their sale date. A sale by accepted best offer is saved as **Sold · last ask**, because eBay hides the price paid. Prices are saved as eBay shows them on that page.
 
 ## Save to WatchLedger button
 
@@ -66,7 +71,22 @@ You can also type a retail price with **Enter**. Retail prices are kept per curr
 
 Opening a catalog watch collects listings and saves a shared public-data archive in the existing D1 records table. Custom watch archives remain under the signed-in user's owner ID. Last-observed asking prices are not treated as verified active inventory; a missing listing is never inferred sold. The chart defaults to all price types and distinguishes reported sales, sold-marked last asks, current asking observations, and retained asks.
 
-`POST /api/market/refresh` refreshes one previously viewed public catalog reference due after six hours, oldest first. It returns `refreshed` and `remaining`; a scheduled run can call it repeatedly. This shared updater relies on the confirmed owner-only Sites gateway and the platform's service credential. It never reads personal collection records or accepts arbitrary URLs. Preserve the private audience when using this endpoint. Routine updates do not require a deployment.
+Each archive only grows: listings no longer found stay with their last observed price ("last observed"), and a listing whose price changes keeps its earlier prices (`priceChanges`, shown on the card as "Reduced from …").
+
+**Storage.** Each listing is a row of its own (`lib/market-archive/storage.ts`); the watch's `market-history` row keeps only source chips, threads and which listings are live, so no row approaches D1's 2 MB limit. Listings of the watch's reference (any dial) load with the page; other models load only when **Show similar listings** is opened (`/api/market/live?similar=1`). A refresh rewrites only new or changed rows. Archives stored the old way (all listings inline) are converted at their next collection. Each catalog watch's search/card price is saved as a `market-summary` row when it is collected, and ECB rates are kept in D1 (`fx:ecb`) and renewed in the background.
+
+**Background refresh.** A cron trigger (`*/5 * * * *` in `vite.config.ts`, handler `scheduled` in `worker/index.ts`) refreshes the most overdue watch every five minutes (`REFRESH_BATCH` raises the number per run). The plan (`lib/market-archive/refresh-plan.ts`):
+
+1. The 45 most popular Rolex references (`POPULAR_ROLEX`), collected every six hours even if nobody opened them, **with eBay**.
+2. Every other catalog watch someone has opened, every six hours, **without eBay** (eBay listings and chips from the last check are kept, not marked gone).
+
+`POST /api/market/refresh` runs the same plan for one watch, for hosts without cron triggers (e.g. the six-hour Sites automation). It returns `refreshed`, `reason` (`popular` or `viewed`), `ebay` and `remaining`. It relies on the confirmed owner-only Sites gateway and the platform's service credential, never reads personal collection records and accepts no arbitrary URLs. Preserve the private audience when using this endpoint. Routine updates do not require a deployment.
+
+**Watch pages open at once.** An archive up to a day old is shown immediately while a newer one is collected in the background; the page fetches again about 15 seconds later. **Refresh** still waits for new data.
+
+**eBay call budget.** eBay calls are counted per UTC day in D1 (`ebay-usage:<date>` records). A refresh uses about 12 calls (17 once Marketplace Insights is approved). Background refreshes stop at 3,000 calls a day, which covers the popular Rolexes four times a day; all eBay use stops at 4,800, below eBay's 5,000. Set `EBAY_BACKGROUND_CALLS` / `EBAY_DAILY_CALLS` to change them. When a limit is reached, the eBay chips say so and the last eBay listings are kept.
+
+Local testing: under `npm run dev`, `curl http://localhost:5173/cdn-cgi/handler/scheduled` runs one scheduled refresh. Wrangler's built preview (`npm start`) cannot pass the schedule event to this worker (`DataCloneError: ScheduledController`), a local tooling limitation.
 
 Phillips coverage is the first search page, at most eight sold lot details per lookup. Amounts are the auction house's reported totals, not normalized hammer prices or seller proceeds. Public availability does not itself establish redistribution rights. Chrono24 remains blocked and is not represented as an automatic data source.
 

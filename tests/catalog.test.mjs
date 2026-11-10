@@ -10,3 +10,14 @@ assert(rows.every(m=>!('price' in m)));assert(rows.every(m=>!m.imageUrl||m.image
 assert.equal(rows.filter(m=>m.imageUrl.startsWith('https://cdn.watchbase.com/')).length,39883);
 assert(rows.every(m=>!m.imageUrl.includes('timepiecepedia.com/watches/')));
 console.log(`Catalog checks passed: ${rows.length.toLocaleString()} unique references; ${new Set(rows.map(m=>m.brand)).size} brands; stable IDs, source links and no fabricated prices.`);
+
+// Numeric Rolex/Tudor references whose lettered form is a separate catalog model must match their letters exactly.
+{
+  const { lib } = await import('./helpers/lib.mjs');
+  const { DISTINCT_LETTERED_REFERENCES } = await lib('collectors/matching/classify');
+  const { baseReference } = await lib('collectors/matching/reference');
+  const bases = new Set(rows.filter((m) => /^(rolex|tudor)$/i.test(m.brand)).map((m) => baseReference(m.reference).toLowerCase()));
+  const distinct = [...bases].filter((b) => /^\d{5,6}$/.test(b) && [...bases].some((x) => x !== b && new RegExp(`^${b}[a-z]+$`).test(x))).sort();
+  assert.deepEqual(distinct, [...DISTINCT_LETTERED_REFERENCES].sort());
+  console.log('Lettered-reference exceptions match the catalog.');
+}

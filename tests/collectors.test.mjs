@@ -194,3 +194,61 @@ try{
 }finally{globalThis.fetch=realFetch;}
 console.log('Host backoff checks passed.');
 }
+
+// eBay: seller's own currency, one entry per item across sites, lettered Rolex references, sold prices.
+{
+  const { parseEbayListings, parseEbaySales, classifyMatch, DISTINCT_LETTERED_REFERENCES } = await lib('collectors');
+  const sub = { id: 'sub', brand: 'Rolex', reference: '124060-0001', name: 'Submariner', family: 'Submariner' };
+  const at = new Date('2026-11-09T10:00:00Z');
+  const item = (o) => ({ title: 'Rolex Submariner 124060LN 2024 full set', itemWebUrl: 'https://www.ebay.com/itm/123456789012?hash=x', itemLocation: { country: 'DE' }, price: { value: '11644.44', currency: 'USD', convertedFromValue: '10450.00', convertedFromCurrency: 'EUR' }, conditionId: '3000', ...o });
+  const [l] = parseEbayListings({ itemSummaries: [item(), item({ itemWebUrl: 'https://www.ebay.com/itm/123456789012' })] }, sub, at);
+  assert.equal(parseEbayListings({ itemSummaries: [item(), item({ itemWebUrl: 'https://www.ebay.com/itm/123456789012' })] }, sub, at).length, 1);
+  assert.deepEqual([l.price, l.currency, l.country, l.match, l.canonicalUrl], [10450, 'EUR', 'DE', 'reference', 'https://www.ebay.com/itm/123456789012']);
+  assert.equal(classifyMatch('Rolex Submariner 124060BKSO black', sub), 'reference');
+  assert.equal(classifyMatch('Rolex Submariner Ref. 124060LN 2023', sub), 'reference');
+  assert.equal(classifyMatch('Rolex Submariner Date 126610LN', sub), 'similar');
+  assert.equal(classifyMatch('Rolex Milgauss 116400GV green', { brand: 'Rolex', reference: '116400-0001', name: 'Milgauss', family: 'Milgauss' }), 'similar');
+  assert(DISTINCT_LETTERED_REFERENCES.has('116400'));
+  const sold = parseEbaySales({ itemSales: [{ ...item(), lastSoldDate: '2026-10-30T12:00:00.000Z', lastSoldPrice: { value: '9900', currency: 'EUR' } }, { ...item({ itemWebUrl: 'https://www.ebay.com/itm/223456789012' }), lastSoldPrice: { value: '9800', currency: 'EUR' } }] }, sub, at);
+  assert.equal(sold.length, 1, 'a sale without a sale date is skipped');
+  assert.deepEqual([sold[0].status, sold[0].price, sold[0].observedAt], ['confirmed-sale', 9900, '2026-10-30']);
+  const { collectEbaySold } = await lib('collectors');
+  assert.equal((await collectEbaySold(sub, {}, 'EBAY_DE')).sources[0].status, 'credentials_required');
+  console.log('eBay checks passed: seller currency kept, items merged across sites, lettered references, sold sales.');
+}
+
+// Regions and archive: Nordic countries are in Europe; listings without a stated country take their source's.
+{
+  const { inRegion } = await lib('market');
+  assert(['FI', 'SE', 'DK', 'NO', 'IS', 'DE'].every((c) => inRegion(c, 'EU')));
+  assert(!inRegion('US', 'EU'));
+  const { mergeListings, reclassifyListings } = await lib('market-archive/listings');
+  const base = { modelId: 'sub', currency: 'EUR', price: 9000, status: 'asking', observedAt: '2026-11-08', condition: 'used', sellerType: 'dealer', contents: 'unknown', title: 'Rolex Submariner 124060', collectedAt: '2026-11-08T00:00:00Z', match: 'reference' };
+  const sub = { id: 'sub', brand: 'Rolex', reference: '124060-0001', name: 'Submariner', family: 'Submariner' };
+  const [laatu] = reclassifyListings([{ ...base, sourceId: 'laatukellot', country: 'UNKNOWN', url: 'https://www.laatukellot.fi/rolex/1' }], sub);
+  assert.equal(laatu.country, 'FI');
+  const merged = mergeListings(
+    [{ ...base, sourceId: 'ebay', country: 'DE', url: 'https://www.ebay.de/itm/123456789012' }],
+    [{ ...base, sourceId: 'ebay', country: 'DE', url: 'https://www.ebay.com/itm/123456789012', canonicalUrl: 'https://www.ebay.com/itm/123456789012' }],
+  );
+  assert.equal(merged.length, 1, 'an archived ebay.de link and a new ebay.com link of the same item are one listing');
+  const kept = mergeListings([{ ...base, sourceId: 'ebay', country: 'DE', status: 'confirmed-sale', url: 'https://www.ebay.com/itm/1234567890', canonicalUrl: 'https://www.ebay.com/itm/1234567890' }], [{ ...base, sourceId: 'ebay', country: 'DE', url: 'https://www.ebay.com/itm/1234567890', canonicalUrl: 'https://www.ebay.com/itm/1234567890' }]);
+  assert.equal(kept[0].status, 'confirmed-sale');
+  console.log('Region and archive checks passed: Nordic in Europe, source home country, eBay item keys, sales kept.');
+}
+
+// A repriced listing keeps its earlier prices; an unchanged one adds nothing.
+{
+  const { mergeListings } = await lib('market-archive/listings');
+  const l = { modelId: 'm', sourceId: 'tori', country: 'FI', currency: 'EUR', price: 9000, status: 'asking', observedAt: '2026-11-01', condition: 'used', sellerType: 'private', contents: 'unknown', url: 'https://www.tori.fi/x/1', title: 'Rolex 124060', collectedAt: '2026-11-01T00:00:00Z', match: 'reference' };
+  const first = mergeListings([], [l], '2026-11-01T10:00:00Z');
+  const same = mergeListings(first, [{ ...l, observedAt: '2026-11-03' }], '2026-11-03T10:00:00Z');
+  assert.equal(same[0].priceChanges, undefined);
+  const cut = mergeListings(same, [{ ...l, price: 8500, observedAt: '2026-11-05' }], '2026-11-05T10:00:00Z');
+  assert.deepEqual([cut[0].price, cut[0].priceChanges], [8500, [{ date: '2026-11-03', price: 9000 }]]);
+  const gone = mergeListings(cut, [], '2026-11-06T10:00:00Z');
+  assert.deepEqual([gone[0].archived, gone[0].price, gone[0].priceChanges.length], [true, 8500, 1], 'a listing no longer found keeps its prices');
+  const back = mergeListings(gone, [{ ...l, price: 8500, observedAt: '2026-11-07' }], '2026-11-07T10:00:00Z');
+  assert.deepEqual([back[0].archived, back[0].priceChanges.length, back[0].firstSeenAt], [false, 1, '2026-11-01T10:00:00Z']);
+  console.log('Listing price-change checks passed: earlier prices kept, nothing overwritten.');
+}

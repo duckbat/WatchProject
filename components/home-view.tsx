@@ -204,7 +204,6 @@ export default function HomeView({ route, brands, prefs, onPrefs, onNavigate, pr
           brands={brands}
           currency={prefs.currency}
           totalCatalog={totalCatalog}
-          autoFocus={!searching}
           onSubmit={(next) => onNavigate({ view: 'home', q: next, brand })}
           onPickBrand={(b) => onNavigate({ view: 'home', brand: b })}
           onPickWatch={open}

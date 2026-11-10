@@ -378,6 +378,14 @@
 .clip-text { margin-top: 14px; font-size: 13px; color: var(--ink-2); }
 .clip-text p { white-space: pre-wrap; background: var(--surface-2); border-radius: 8px; padding: 10px; max-height: 220px; overflow: auto; }
 .clip-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.ebay-sold-list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow: auto; }
+.ebay-sold-list label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; cursor: pointer; }
+.ebay-sold-list li.on label { border-color: var(--accent); background: var(--accent-soft); }
+.ebay-sold-list input { margin-top: 3px; }
+.ebay-sold-list label > span { flex: 1; min-width: 0; }
+.ebay-sold-list a { color: var(--ink); overflow-wrap: anywhere; }
+.ebay-sold-list small { display: block; color: var(--muted); margin-top: 2px; }
+.ebay-sold-list strong { white-space: nowrap; }
 .clip-form input, .clip-form select { width: 100%; font-size: 14px; }
 .clip-form .fee-live { margin: -4px 0 12px; }
 @media (max-width: 900px) { .clip-grid { grid-template-columns: 1fr; } }
